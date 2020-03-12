@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>fastTemplate</title>
+</head>
+
+<body>
+    <script src="fastTemplate.js"></script>
+    <style>
+        body,
+        html {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+        }
+
+        #container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            flex-direction: column;
+        }
+
+        .box {
+            border-radius: 1cm;
+            height: 20vh;
+            width: 20vw;
+            box-shadow: 0 5px 20px -12px #000000a0;
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.3em;
+            text-align: center;
+            transition: all 1s;
+        }
+    </style>
+    <script>
+        //动态添加元素示例
+        window.onload = () => {
+            setTimeout(() => {
+                let bx = document.createElement("big-box");
+                //使用直接设置object来设置默认值
+                bx.ftmData = {
+                    color: "#fd6de8",
+                    emotion: "romantic"
+                }
+                document.getElementById("container").appendChild(bx);
+                setTimeout(() => {
+                    //也可以再次直接设置
+                    bx.ftmData = {
+                        color: "#7c00cf",
+                        emotion: "oh I fogot!"
+                    }
+                    //修改数据
+                    bx.ftmData.emotion = "mystery";
+                }, 1000);
+            }, 1000)
+        }
+    </script>
+    <div id="container">
+        <!--一定要提前声明模板噢！-->
+        <template ftm-el="big-box">
+            <div class="box" ftm:style="background-color:?{color};text-shadow:0 0 3px #000000a0">
+                The color conveys:<br>?{emotion}
+            </div>
+        </template>
+        <!--静态元素示例-->
+        <big-box>
+            {
+            "color":"#ff6015",
+            "emotion":"enthusiastic"
+            }
+        </big-box>
+        <big-box>
+            {
+            "color":"#89ff33",
+            "emotion":"dynamic"
+            }
+        </big-box>
+        <big-box>
+            {
+            "color":"#4ccdff",
+            "emotion":"freedom"
+            }
+        </big-box>
+    </div>
+</body>
+
+</html>
