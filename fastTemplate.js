@@ -3,22 +3,27 @@
 
     用法：
     <template id="sample" ftm-el="show-img">
-        <img src="http://abc.example.com/?{path}?type=nature"></img>
-        图片名称：?{name}
-        描述：?{desc}
+        <img src="http://abc.example.com/%{path}?type=nature"></img>
+        图片名称：%{name}
+        描述：%{desc}
+        这是第%{js:ftmData.num<0?1:ftmData.num}张图片
     </template>
     <show-img>
         {
-            
+            "path":"flowers.jpg",
+            "name":"花朵",
+            "desc":"许多许多的花朵绽放在山坡上",
+            "num":-2
         }
     </show-img>
 
     也可以：
     let im=document.createElement("show-img");
     im.ftmData={
-        "path":"flowers.jpg",
-        "name":"花朵",
-        "desc":"许多许多的花朵绽放在山坡上"
+        path:"flowers.jpg",
+        name:"花朵",
+        desc:"许多许多的花朵绽放在山坡上",
+        num:-2
     };
     document.body.appendChild(im);
 
@@ -65,12 +70,12 @@
                     var1:{
                         attr:Map {
                             [object HTMLDivElement]:{
-                                attrname1:"?{foo}",
-                                attrname2:"abcde?{bar}"
+                                attrname1:"%{foo}",
+                                attrname2:"abcde%{bar}"
                             }
                         },
                         innr:Map {
-                            [object #Text]:"?{name} is a text node!!"
+                            [object #Text]:"%{name} is a text node!!"
                         }
                     }
                     */
@@ -92,8 +97,8 @@
                 target.appendChild(ctt);
 
                 //读取模板
-                //匹配?{var}
-                const reg = /\?{([\w\$]+)}/g;
+                //匹配%{var}
+                //const reg = /\%{([\w\$]+)}/g;
 
                 //读取节点观察节点是否需要绑定到变量
                 function readNode(node) {
@@ -111,13 +116,112 @@
                         }
                         return binds[name];
                     }
+
+                    //辅助读取ftmBlock
+                    function _readBlock(str) {
+                        let blocks = [];//里面提供：[<number Start>,<string completeContent>,<string requires>]
+                        let reg = /%{/g;
+                        //检测每个可能是ftmBlock的块
+                        while (true) {
+                            if (!reg.exec(str)) break;//这里还有记录lastIndex的作用，此时lastIndex是完整的ftmBlock开端
+                            let startIndex = reg.lastIndex - 2;
+                            let rest = str.slice(reg.lastIndex);//从完整的ftmBlock开端开始截取后面的字符串
+                            let type = rest.match(/^js\:|^html\:|^[\w\$]+(?=\})/);
+                            type = type && type[0];
+                            if (!type) {
+                                //不符合要求
+                                continue;
+                            }
+                            //深入ftmBlock检测所需变量
+                            switch (type) {
+                                case null:
+                                    break;
+                                case "js:":
+                                    let stacks = 1;//记录大括号
+                                    let quotes = null;
+                                    let reg2 = /(?<!\\)[`"'\/]|[{}]/g;
+                                    while (true) {
+                                        let spliter = reg2.exec(rest)[0];
+                                        if (!spliter) break;//括号未闭合
+                                        if (/["'`\/]/.test(spliter)) {
+                                            //是引号
+                                            if (!quotes) quotes = spliter;
+                                            else if (quotes == spliter) quotes = null;
+                                        } else {
+                                            if (quotes) continue;//如果被包含在引号内则跳过
+                                            if (spliter == "{") stacks++;
+                                            else if (spliter == "}") {
+                                                if (--stacks == 0) {
+                                                    //js引用结束，输出也包含}
+                                                    let ctt = str.slice(startIndex, reg.lastIndex + reg2.lastIndex);
+                                                    blocks.push([startIndex, ctt, "##javascript"]);
+                                                    reg.lastIndex += ctt.length + 1 - 2;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    break;
+                                case "html:": {//这个括号创建局部环境
+                                    let skip = rest.indexOf("}");
+                                    blocks.push([
+                                        startIndex,
+                                        "%{" + rest.slice(0, skip) + "}",  //不用skip+1是因为这样利于理解
+                                        rest.slice(rest.indexOf(":") + 1, skip)
+                                    ]);
+                                    reg.lastIndex += skip + 1 - 2;
+                                    break;
+                                }
+                                default: {
+                                    let skip = rest.indexOf("}");
+                                    blocks.push([
+                                        startIndex, "%{" + rest.slice(0, skip) + "}", rest.slice(0, skip)
+                                    ]);
+                                    reg.lastIndex += skip + 1 - 2;
+                                    break;
+                                }
+                            }
+                        }
+                        return blocks;
+                    }
+                    //给出需要绑定的变量
+                    function readBlock(str) {
+                        return _readBlock(str).map(x => x[2]);
+                    }
+                    //实例化一个模板
+                    function overrideBlock(str) {
+                        let offset = 0;
+                        let arr = _readBlock(str);
+                        for (let o of arr) {
+                            let [start, content] = o;
+                            let rawctt = content.slice(content.indexOf(":") > -1 ? content.indexOf(":") + 1 : 2, -1);//裁剪出来的有效部分
+                            let type = content.indexOf(":");
+                            type = type == -1 ? "string" : content.slice(2, type);
+                            let repla = "<Err_Unknown_Type>";
+                            if (type == "string") {
+                                repla = String(ftmData[rawctt]);
+                            } else if (type == "js") {
+                                try {
+                                    repla = new Function("ftmData", "return (" + rawctt + ")")(Object.assign({}, ftmData));
+                                    repla = String(repla);
+                                } catch (err) {
+                                    repla = err.toString();
+                                }
+                            }
+                            str = str.slice(0, start + offset) + repla + str.slice(start + offset + content.length);
+                            offset += repla.length - content.length;
+                        }
+                        return str;
+                    }
+
+                    detectVar("##javascript");
                     if (node.nodeType === 1) {
                         //元素节点
                         for (let i = 0; i < node.attributes.length; i++) {
                             let a = node.attributes[i];
-                            let arr = a.value.match(reg) || [];
+                            let arr = readBlock(a.value);
                             arr.forEach((e) => {
-                                e = e.slice(2, -1);//去除?{和}
+                                //e = e.slice(2, -1);//去除%{和}
                                 let obj = detectVar(e);
                                 let current = obj.attr.get(node);//变量的属性的当前元素分区
                                 if (!current) {
@@ -130,13 +234,28 @@
                         node.childNodes.forEach(readNode);
                     } else if (node.nodeType === 3) {
                         //文本节点
-                        let arr = node.nodeValue.match(reg) || [];
-
+                        let arr = readBlock(node.nodeValue);
                         arr.forEach((e) => {
-                            e = e.slice(2, -1);//去除?{和}
+                            //e = e.slice(2, -1);//去除%{和}
                             let obj = detectVar(e);
                             obj.innr.set(node, node.nodeValue);
                         });
+                    }
+
+                    let waitingRender;
+                    //延迟渲染
+                    function renderAfterFinished(prop) {
+                        if (!waitingRender) {
+                            waitingRender = [];
+                            setTimeout(() => {
+                                waitingRender.push("##javascript");
+                                waitingRender.forEach(e => {
+                                    setNode(e);
+                                });
+                                waitingRender = null;
+                            });
+                        }
+                        if (!waitingRender.includes(prop)) waitingRender.push(prop);
                     }
 
                     //设置ftmProxy选项
@@ -157,10 +276,10 @@
                                     },
                                     set: function (v) {
                                         ftmData[prop] = v;
-                                        setNode(prop);
+                                        renderAfterFinished(prop);
                                     }
                                 });
-                                setNode(prop);
+                                renderAfterFinished(prop, false);
                             });
                             ftmProxy = v;
                             /*ftmData = {};
@@ -191,9 +310,7 @@
                             //a是个普通的object，储存了属性的键值信息
                             for (let n in a) {
                                 let str = a[n];//属性模板字符串
-                                str = str.replace(reg, function (_, p1) {
-                                    return ftmData[p1] || "";
-                                });
+                                str = overrideBlock(str);
                                 ele.setAttribute(n.slice(0, 4) == "ftm:" ? n.slice(4) : n, str);
                             }
                         });
@@ -203,9 +320,7 @@
                                 innr.delete(va);
                                 return;
                             }
-                            str = str.replace(reg, function (_, p1) {
-                                return ftmData[p1] || "";
-                            });
+                            str = overrideBlock(str);
                             va.nodeValue = str;
                         });
                     }
@@ -226,9 +341,9 @@
         childList: true,
         subtree: true
     });
-    window.addEventListener("load", () => {
+    /*window.addEventListener("load", () => {
         DOMchange({
             addedNodes: [document.documentElement]
         });
-    });
+    });*/
 }

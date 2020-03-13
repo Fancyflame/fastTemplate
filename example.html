@@ -63,12 +63,20 @@
                 }, 1000);
             }, 1000)
         }
+
+        function reverseColor(clr) {
+            let arr = clr.slice(1).match(/\w{2}/g);
+            arr = arr.map(x => (0xff - parseInt(x, 16)).toString(16).padStart(2, "0"));
+            return "#" + arr.join("");
+        }
     </script>
     <div id="container">
         <!--一定要提前声明模板噢！-->
         <template ftm-el="big-box">
-            <div class="box" ftm:style="background-color:?{color};text-shadow:0 0 3px #000000a0">
-                The color conveys:<br>?{emotion}
+            <div class="box"
+                ftm:style="background-color:%{color};color:%{js:reverseColor(ftmData.color)};text-shadow:0 0 3px #000000a0">
+                The color conveys:<br>%{emotion}<br>
+                the color code is %{js:`\"{${/\w{3}/.exec(ftmData.color)[0]}\`}""""'}}}''\"`}
             </div>
         </template>
         <!--静态元素示例-->
