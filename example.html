@@ -76,27 +76,24 @@
             <div class="box"
                 ftm:style="background-color:%{color};color:%{lazy-js:reverseColor(ftmData.color)};text-shadow:0 0 3px #000000a0">
                 The color conveys:<br>%{emotion}<br>
-                the color code is %{js:`\"{${/\w{3}/.exec(ftmData.color)[0]}\`}""""'}}}''\"`}
+                the color code and reversed one are %{js:ftmData.color+" and "+reverseColor(ftmData.color)}
             </div>
         </template>
         <!--静态元素示例-->
         <big-box>
-            {
-            "color":"#ff6015",
-            "emotion":"enthusiastic"
-            }
+            <pre>
+                emotion:enthusiastic,
+                    it_likes:orangered
+                color:#ff6015
+            </pre>
         </big-box>
         <big-box>
-            {
-            "color":"#89ff33",
-            "emotion":"dynamic"
-            }
+            color:#89ff33
+            emotion:dynamic
         </big-box>
         <big-box>
-            {
-            "color":"#4ccdff",
-            "emotion":"freedom"
-            }
+            color:#4ccdff
+            emotion:freedom
         </big-box>
     </div>
 </body>

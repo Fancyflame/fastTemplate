@@ -9,12 +9,12 @@
         这是第%{js:ftmData.num<0?1:ftmData.num}张图片
     </template>
     <show-img>
-        {
-            "path":"flowers.jpg",
-            "name":"花朵",
-            "desc":"许多许多的花朵绽放在山坡上",
-            "num":-2
-        }
+        path:flowers.jpg
+        name:花朵
+        desc:许多许多的花
+            绽放在山坡上
+            真好看
+        num:-2
     </show-img>
 
     也可以：
@@ -88,15 +88,41 @@
                     }
                     */
                 };
-                console.log(target.tagName);
                 //导入模板
                 let _ftmData = (function () {
                     if (target.ftmData) return target.ftmData;
-                    try {
-                        return JSON.parse(target.innerText);
-                    } catch (err) {
-                        return {};
+                    let obj = {};
+                    let str = target.firstElementChild && target.firstElementChild.nodeName == "PRE" ?
+                        target.firstElementChild : target;
+                    //分段写法
+                    str = str.innerHTML.replace(/^\n*|\n*$/g, "");
+                    let match = /(^\s*)(.*)/mg;
+                    //固定的缩进
+                    let keyIndent = match.exec(str)[1];
+                    match.lastIndex = 0;
+                    let valueIndent = null;
+                    let lastkey;
+                    while (true) {
+                        let fullstr = match.exec(str);
+                        if (fullstr === null) break;
+                        let wsp = fullstr[1];//white space
+                        let word = fullstr[2];//有效字段
+                        if (wsp == keyIndent) {
+                            //匹配开端
+                            let foo = word.split(":");
+                            //缩进是关键字缩进
+                            valueIndent = null;
+                            lastkey = foo[0];
+                            obj[lastkey] = foo.slice(1).join("");
+                        } else {
+                            //缩进是长段文本缩进
+                            if (valueIndent == null) {
+                                valueIndent = wsp;
+                            }
+                            obj[lastkey] += "\n" + (wsp.length > valueIndent.length ? wsp.slice(valueIndent.length) : "") + word;
+                        }
                     }
+                    return obj;
                 })();
                 let ftmData = {};
                 target.innerHTML = "";
