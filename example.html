@@ -72,9 +72,9 @@
     </script>
     <div id="container">
         <!--一定要提前声明模板噢！-->
-        <template ftm-el="big-box">
+        <template ftm-el="big-box" ftm-once="false">
             <div class="box"
-                ftm:style="background-color:%{color};color:%{js:reverseColor(ftmData.color)};text-shadow:0 0 3px #000000a0">
+                ftm:style="background-color:%{color};color:%{lazy-js:reverseColor(ftmData.color)};text-shadow:0 0 3px #000000a0">
                 The color conveys:<br>%{emotion}<br>
                 the color code is %{js:`\"{${/\w{3}/.exec(ftmData.color)[0]}\`}""""'}}}''\"`}
             </div>

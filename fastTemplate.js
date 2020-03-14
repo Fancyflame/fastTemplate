@@ -59,12 +59,20 @@
                 let temname = target.getAttribute("ftm-el");
                 if (!temname) return;
                 if (isAdd) {
-                    templates[temname] = target;
+                    templates[temname] = {
+                        ele: target,
+                        once: target.getAttribute("ftm-once") == "true"
+                    };
                 } else {
                     delete templates[temname];
                 }
             } else if (isAdd) {
-                let tem = templates[target.nodeName.toLowerCase()];
+                let { ele: tem, once } = templates[target.nodeName.toLowerCase()] || {};
+                if (!tem) return;
+                {
+                    let _once = target.getAttribute("ftm-once");
+                    if (_once) once = _once == "true";
+                }
                 let binds = { //模板里头绑定的数据
                     /*
                     var1:{
@@ -80,8 +88,7 @@
                     }
                     */
                 };
-                if (!tem) return;
-
+                console.log(target.tagName);
                 //导入模板
                 let _ftmData = (function () {
                     if (target.ftmData) return target.ftmData;
@@ -126,7 +133,7 @@
                             if (!reg.exec(str)) break;//这里还有记录lastIndex的作用，此时lastIndex是完整的ftmBlock开端
                             let startIndex = reg.lastIndex - 2;
                             let rest = str.slice(reg.lastIndex);//从完整的ftmBlock开端开始截取后面的字符串
-                            let type = rest.match(/^js\:|^html\:|^[\w\$]+(?=\})/);
+                            let type = rest.match(/^js\:|^lazy-js\:|^html\:|^[\w\$]+(?=\})/);
                             type = type && type[0];
                             if (!type) {
                                 //不符合要求
@@ -136,6 +143,7 @@
                             switch (type) {
                                 case null:
                                     break;
+                                case "lazy-js":
                                 case "js:":
                                     let stacks = 1;//记录大括号
                                     let quotes = null;
@@ -154,7 +162,8 @@
                                                 if (--stacks == 0) {
                                                     //js引用结束，输出也包含}
                                                     let ctt = str.slice(startIndex, reg.lastIndex + reg2.lastIndex);
-                                                    blocks.push([startIndex, ctt, "##javascript"]);
+                                                    //lazy-js就是仅当当前属性或文本变化时才被动渲染
+                                                    if (type == "js:") blocks.push([startIndex, ctt, "##javascript"]);
                                                     reg.lastIndex += ctt.length + 1 - 2;
                                                     break;
                                                 }
@@ -200,9 +209,9 @@
                             let repla = "<Err_Unknown_Type>";
                             if (type == "string") {
                                 repla = String(ftmData[rawctt]);
-                            } else if (type == "js") {
+                            } else if (type == "js" || type == "lazy-js") {
                                 try {
-                                    repla = new Function("ftmData", "return (" + rawctt + ")")(Object.assign({}, ftmData));
+                                    repla = new Function("ftmData", "return (" + rawctt + ")")(ftmProxy);
                                     repla = String(repla);
                                 } catch (err) {
                                     repla = err.toString();
@@ -260,27 +269,34 @@
 
                     //设置ftmProxy选项
                     let ftmProxy;
+                    let haveSettedData = false;
                     //console.log(target.ftmData);
-                    if (node.ftmAlive) return;
                     Object.defineProperty(node, "ftmData", {
                         get: function () {
                             return ftmProxy;
                         },
                         set: function (v) {
                             //劫持get和set
+                            if (once && haveSettedData) return;
+                            haveSettedData = true;
                             ftmData = Object.assign({}, v);
                             Object.keys(v).forEach(prop => {
-                                Object.defineProperty(v, prop, {
-                                    get: function () {
-                                        return ftmData[prop];
-                                    },
-                                    set: function (v) {
-                                        ftmData[prop] = v;
-                                        renderAfterFinished(prop);
-                                    }
-                                });
+                                if (!once) {
+                                    Object.defineProperty(v, prop, {
+                                        get: function () {
+                                            return ftmData[prop];
+                                        },
+                                        set: function (v) {
+                                            ftmData[prop] = v;
+                                            renderAfterFinished(prop);
+                                        }
+                                    });
+                                }
                                 renderAfterFinished(prop, false);
                             });
+                            if (once) {
+                                Object.freeze(v);//禁止修改
+                            }
                             ftmProxy = v;
                             /*ftmData = {};
                             ftmProxy = new Proxy(ftmData, {
