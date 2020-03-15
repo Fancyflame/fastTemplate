@@ -3,34 +3,70 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">                                                                 
     <title>Tutorial</title>
 </head>
 
 <body>
+    <script src="fastTemplate.js"></script>
     <style>
         li {
             background-color: #fdfdfd;
             border-radius: 1ch;
             margin: auto;
             box-shadow: 0 1ch 1em -0.8em #00000080;
-            width: 50vw;
-            min-width: 4cm;
+            width: 80vw;
+            box-sizing:border-box;
+            max-width: 15cm;
             padding: 3vmin;
             list-style: none;
-            border-left: 1em solid violet;
         }
-
+        
         li:first-child {
             color: #222;
             font-size: 1.4em;
+            margin-top:4vh;
+        }
+        
+        .article{
+            color:#444;
+            line-height:2.5ch;
+            
         }
     </style>
-    <ul>
-        <li>
-            <p>介绍</p>
-
+    <script>
+        function randomColor(){
+            let c="#"+(Math.floor(0x1000000*Math.random()).toString(16).padStart(6,"0"));
+            return c;
+        }
+    </script>
+    <template ftm-el="tut-part">
+        <li ftm:style="border-left: 0.2em solid %{b_color};">
+            <h2>%{title}</h2>
+            <hr>
+            <p ftm-use-html="%{html:article}" ftm-once="true" class="article"></p>
         </li>
+    </template>
+    <ul>
+        <tut-part>
+            title:简介 - 什么是FastTemplate
+            b_color:violet
+            <template ftm-in-html ftm-key="article">
+                FastTemplate，简称FTM，是由FancyFlame受Vue.js启发随手做的一个小型轻量级HTML框架，更适合
+                原生开发者。同时，它也完成了无JavaScript搭建模板，实时响应，以及js快速计算。
+                它甚至没有全局常量，仅对符合要求的元素进行稍微更改，不会出现任何
+                意想不到的事情，即便您对FTM一无所知，调用它也仍然不会破坏您的结构。最重要的是
+                <h3 style="text-align:center;">它十分人性化</h3>
+                所以，现在开始教程吧！
+            </template>
+        </tut-part>
+        <tut-part>
+            title:声明模板
+            b_color:green
+            <template ftm-in-html ftm-key="article">
+                首先，需要注意的是这个模板一定是<code>template</code>元素！
+            </template>
+        </tut-part>
     </ul>
 </body>
 

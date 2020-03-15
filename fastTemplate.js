@@ -92,9 +92,10 @@
                 let _ftmData = (function () {
                     if (target.ftmData) return target.ftmData;
                     let obj = {};
-                    let str = target.querySelector("pre[ftm-data]") || target;
+                    let str = target.querySelector("pre[ftm-data]");
+                    str=str?str.innerHTML:target.firstChild.nodeValue;//第一个节点应该是文本节点
                     //分段写法
-                    str = str.innerHTML.replace(/^\n*|\n*$/g, "");
+                    str = str.replace(/^\n*|\n*$/g, "");
                     let match = /(^\s*)(.*)/mg;
                     //固定的缩进
                     let keyIndent = match.exec(str)[1];
@@ -127,9 +128,15 @@
                         if (key === null) continue;
                         //这个是表示只取子元素
                         if (x.getAttribute("ftm-in-html") !== null) {
-                            let fra = document.createDocumentFragment();
-                            for (let y of x.childNodes) fra.appendChild(y);
-                            x = fra;
+                            if(x.tagName=="TEMPLATE"){
+                                x=x.content;
+                            }else{
+                                let fra = document.createDocumentFragment();
+                                for (let y of x.childNodes){
+                                    fra.append(y);
+                                }
+                                x = fra;
+                            }
                         }
                         obj[key] = x;
                     }
@@ -258,7 +265,7 @@
                                 }
                             } else if (type == "html") {
                                 let html = ftmData[rawctt];
-                                return type == "cp-html" ? html.cloneNode(true) : html;
+                                return html.cloneNode(true);
                             }
                             str = str.slice(0, start + offset) + repla + str.slice(start + offset + content.length);
                             offset += repla.length - content.length;
@@ -359,6 +366,7 @@
                             return;
                         }
                         let { attr, innr } = binds[prop];
+                        let isHTML=false;
                         //写入属性
                         for (let o of attr) {
                             let [ele, a] = o;
@@ -375,12 +383,14 @@
                                     if (str instanceof Node) {
                                         ele.innerHTML = "";
                                         ele.appendChild(str);
+                                        isHTML=true;
                                     }
                                 }
                                 ele.setAttribute(attrname, str);
                             }
                         }
                         //写入文本
+                        if(!isHTML){
                         innr.forEach((str, va) => {
                             if (va.getRootNode() != document) {
                                 innr.delete(va);
@@ -389,6 +399,7 @@
                             str = overrideBlock(str);
                             va.nodeValue = String(str);
                         });
+                        }
                     }
 
                     //最后把初始化数据应用进去
