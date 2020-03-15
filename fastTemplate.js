@@ -92,8 +92,7 @@
                 let _ftmData = (function () {
                     if (target.ftmData) return target.ftmData;
                     let obj = {};
-                    let str = target.firstElementChild && target.firstElementChild.nodeName == "PRE" ?
-                        target.firstElementChild : target;
+                    let str = target.querySelector("pre[ftm-data]") || target;
                     //分段写法
                     str = str.innerHTML.replace(/^\n*|\n*$/g, "");
                     let match = /(^\s*)(.*)/mg;
@@ -121,6 +120,18 @@
                             }
                             obj[lastkey] += "\n" + (wsp.length > valueIndent.length ? wsp.slice(valueIndent.length) : "") + word;
                         }
+                    }
+                    //获取子html元素设定为参数
+                    for (let x of target.children) {
+                        let key = x.getAttribute("ftm-key");
+                        if (key === null) continue;
+                        //这个是表示只取子元素
+                        if (x.getAttribute("ftm-in-html") !== null) {
+                            let fra = document.createDocumentFragment();
+                            for (let y of x.childNodes) fra.appendChild(y);
+                            x = fra;
+                        }
+                        obj[key] = x;
                     }
                     return obj;
                 })();
@@ -234,21 +245,26 @@
                             type = type == -1 ? "string" : content.slice(2, type);
                             let repla = "<Err_Unknown_Type>";
                             if (type == "string") {
-                                repla = String(ftmData[rawctt]);
+                                repla = ftmData[rawctt];
+                                if (repla instanceof Node) return repla;
+                                else repla = String(repla);
                             } else if (type == "js" || type == "lazy-js") {
                                 try {
                                     repla = new Function("ftmData", "return (" + rawctt + ")")(ftmProxy);
-                                    repla = String(repla);
+                                    if (repla instanceof Node) return repla;
+                                    else repla = String(repla);
                                 } catch (err) {
                                     repla = err.toString();
                                 }
+                            } else if (type == "html") {
+                                let html = ftmData[rawctt];
+                                return type == "cp-html" ? html.cloneNode(true) : html;
                             }
                             str = str.slice(0, start + offset) + repla + str.slice(start + offset + content.length);
                             offset += repla.length - content.length;
                         }
                         return str;
                     }
-
                     detectVar("##javascript");
                     if (node.nodeType === 1) {
                         //元素节点
@@ -344,7 +360,8 @@
                         }
                         let { attr, innr } = binds[prop];
                         //写入属性
-                        attr.forEach((a, ele) => {
+                        for (let o of attr) {
+                            let [ele, a] = o;
                             if (ele.getRootNode() != document) {
                                 attr.delete(ele);
                                 return;
@@ -353,9 +370,16 @@
                             for (let n in a) {
                                 let str = a[n];//属性模板字符串
                                 str = overrideBlock(str);
-                                ele.setAttribute(n.slice(0, 4) == "ftm:" ? n.slice(4) : n, str);
+                                let attrname = n.slice(0, 4) == "ftm:" ? n.slice(4) : n;
+                                if (attrname == "ftm-use-html") {
+                                    if (str instanceof Node) {
+                                        ele.innerHTML = "";
+                                        ele.appendChild(str);
+                                    }
+                                }
+                                ele.setAttribute(attrname, str);
                             }
-                        });
+                        }
                         //写入文本
                         innr.forEach((str, va) => {
                             if (va.getRootNode() != document) {
@@ -363,7 +387,7 @@
                                 return;
                             }
                             str = overrideBlock(str);
-                            va.nodeValue = str;
+                            va.nodeValue = String(str);
                         });
                     }
 
