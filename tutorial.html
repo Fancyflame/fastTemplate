@@ -3,71 +3,377 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">                                                                 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tutorial</title>
 </head>
 
 <body>
     <script src="fastTemplate.js"></script>
     <style>
-        li {
-            background-color: #fdfdfd;
-            border-radius: 1ch;
+        .articleBlock {
+            background-color: #fcfcfc;
             margin: auto;
             box-shadow: 0 1ch 1em -0.8em #00000080;
             width: 80vw;
-            box-sizing:border-box;
-            max-width: 15cm;
+            box-sizing: border-box;
+            max-width: 25cm;
             padding: 3vmin;
             list-style: none;
         }
-        
-        li:first-child {
+
+        .articleBlock {
             color: #222;
             font-size: 1.4em;
-            margin-top:4vh;
+            margin-top: 4vh;
         }
-        
-        .article{
-            color:#444;
-            line-height:2.5ch;
-            
+
+        .article {
+            color: #444;
+            line-height: 2.5ch;
+        }
+
+        code {
+            background-color: #dddddd;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: large;
+            display: inline-block;
+            height: 2.5ch;
+        }
+
+        code::before,
+        code::after {
+            content: ' ';
+        }
+
+        .bigcode {
+            background-color: #e6e6e6;
+            font-family: 'Courier New', Courier, monospace;
+            color: rgb(226, 17, 146);
+            display: block;
+            margin: 2ch auto;
+            padding: 1.5em;
+            width: 90%;
+            white-space: pre;
+            font-size: 0.9em;
+            border: none;
+        }
+
+        table {
+            border-collapse: separate;
+            table-layout: fixed;
+            border: none;
+        }
+
+        td:first-child {
+            white-space: nowrap;
+        }
+
+        td:first-child>code {
+            background-color: transparent;
+        }
+
+        tr:nth-child(2n+1) {
+            background-color: #dddddd;
+        }
+
+        tr:nth-child(2n) {
+            background-color: #eeeeee;
+        }
+
+        td {
+            border: none;
+            /*box-shadow: 0 0.5em 1cm -0.8cm black;*/
         }
     </style>
     <script>
-        function randomColor(){
-            let c="#"+(Math.floor(0x1000000*Math.random()).toString(16).padStart(6,"0"));
+        function randomColor() {
+            let c = "#" + (Math.floor(0x1000000 * Math.random()).toString(16).padStart(6, "0"));
             return c;
         }
+        function returnData(str) {
+            let s = str.match(/^\s*/)[0];
+            let reg = new RegExp("^\\s{0," + s.length + "}", "mg");
+            return str.replace(reg, "");
+        }
     </script>
-    <template ftm-el="tut-part">
-        <li ftm:style="border-left: 0.2em solid %{b_color};">
+    <template ftm-el="tut-part" ftm-in-html>
+        <div ftm:style="border-left: 0.2em solid %{b_color};" class="articleBlock">
             <h2>%{title}</h2>
             <hr>
-            <p ftm-use-html="%{html:article}" ftm-once="true" class="article"></p>
-        </li>
+            <p ftm-use-html="%{article}" ftm-once="true" class="article"></p>
+        </div>
     </template>
-    <ul>
-        <tut-part>
+    <template ftm-el="big-code" ftm-once="true">
+        <div class="bigcode">%{js:returnData(ftmData.ta.innerHTML)}</div>
+    </template>
+    <div>
+        <tut-part ftm-once="true">
             title:简介 - 什么是FastTemplate
             b_color:violet
-            <template ftm-in-html ftm-key="article">
+            <div ftm-key="article">
                 FastTemplate，简称FTM，是由FancyFlame受Vue.js启发随手做的一个小型轻量级HTML框架，更适合
-                原生开发者。同时，它也完成了无JavaScript搭建模板，实时响应，以及js快速计算。
+                原生开发者，这个网页就是以ftm为框架制作的。同时，它也完成了无JavaScript搭建模板，实时响应，以及js快速计算。
                 它甚至没有全局常量，仅对符合要求的元素进行稍微更改，不会出现任何
                 意想不到的事情，即便您对FTM一无所知，调用它也仍然不会破坏您的结构。最重要的是
                 <h3 style="text-align:center;">它十分人性化</h3>
-                所以，现在开始教程吧！
-            </template>
+                废话少说，现在开始教程吧！
+            </div>
         </tut-part>
         <tut-part>
-            title:声明模板
-            b_color:green
-            <template ftm-in-html ftm-key="article">
-                首先，需要注意的是这个模板一定是<code>template</code>元素！
-            </template>
+            <pre ftm-data>
+                title:声明模板
+                b_color:limegreen
+            </pre>
+            <div ftm-key="article">
+                首先，需要注意的是这个模板一定是<code>&lt;template&gt;</code>元素，且带有<code>ftm-el</code>
+                属性，它对应着目标元素的元素名（<code>tagName</code>）。请看下面一个示例。
+                <big-code>
+                    <template ftm-key="ta">
+                        <template ftm-el="fast-tem">
+                            <div style="background: blue;color:white;">%{words}</div>
+                        </template>
+                    </template>
+                </big-code>
+                这样就声明了一个蓝色背景白色字的模板，当然，您可以声明更复杂的模板。<br>
+                这个template元素可以拥有以下几个属性：
+                <table>
+                    <tr>
+                        <th>属性名</th>
+                        <th>描述</th>
+                    </tr>
+                    <tr>
+                        <td><code>ftm-el</code></td>
+                        <td>设置引用这个模板的元素。如果不是特殊需要，请设置为一个自定义元素的标签名，例如上文的fast-tem</td>
+                    </tr>
+                    <tr>
+                        <td><code>ftm-once</code></td>
+                        <td>使模板复制出来的元素只能被加载一次。默认false</td>
+                    </tr>
+                    <tr>
+                        <td><code>ftm-in-html</code></td>
+                        <td>设置默认ftm-in-html属性。默认false</td>
+                    </tr>
+                </table>
+                您一定注意到了这个<code>%{words}</code>了吧！请看下面的章节。
+            </div>
         </tut-part>
-    </ul>
+        <tut-part>
+            title:ftmBlock - 模板元素的变量使用
+            b_color:limegreen
+            <div ftm-key="article">
+                <br>
+                先上表格
+                <table>
+                    <tr>
+                        <th>表达式</th>
+                        <th>描述</th>
+                    </tr>
+                    <tr>
+                        <td><code>%{var}</code></td>
+                        <td>最广泛使用的变量声明式。它只能包含字母、数字、下划线以及美元符号，且可以以数字开头。
+                            （正则表达式<code>/[\w\$]+/</code>）它可以直接引用var代表的字符串和继承自<code>Node</code>的元素
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><code>%{js:sta}</code></td>
+                        <td>使用js计算并返回这个值，要求<strong>表达式sta是一个值，并传入<code>ftmData</code>参数</strong>。
+                            例如 %{js:100>50?100:50} 是正确的而 %{js:if(100>50)return 100} 是错误的。<strong>它受所有绑定的变量影响。</strong>这
+                            可能对性能要求较高。</td>
+                    </tr>
+                    <tr>
+                        <td><code>%{lazy-js:sta}</code></td>
+                        <td>与js类似。只不过它是被动的，不因任何变量的响应而变化，除非是在同一环境下的其它表达式变化
+                            才会一起重新计算。能够缓解性能占用。</td>
+                    </tr>
+                    <tr>
+                        <td><code>%{html:ele}</code></td>
+                        <td>将这个元素作为副本使用。</td>
+                    </tr>
+                </table>
+                注释：<code>ftmData</code>是模板实例化后自动生成的Object，记录着 变量->值（字符串或节点） 的对应关系。
+                <p>
+                    您可以将它们放在属性或者文本节点中。需要注意的是，节点值对除<code>ftm-use-html</code>属性外的所有属性和文本节点
+                    都将会转换成字符串。而<code>ftm-use-html</code>属性会对返回的第一个元素节点生效，使用它覆盖属性所有者的
+                    所有子节点。
+                </p>
+                <p>
+                    另外，如果您的编辑器对您带有ftmBlock表达式属性值有异议，或者其它的情况不能把ftmBlock表达式直接写在属性里，
+                    您可以使用<code>ftm:attribute=</code>来表示，例如<code>ftm:style="color:%{color};"</code>等效于
+                    <code>style="color:%{color};"</code>
+                </p>
+                <p>
+                    一个例子
+                    <big-code>
+                        <template ftm-key="ta">
+                            <template ftm-el="fast-tem">
+                                <div ftm:style="color:%{font_color};">
+                                    这里文本颜色代码是%{font_color}而如果将它转换成十进制的话则是
+                                    %{lazy-js:parseInt(ftmData.font_color.slice(1),16)}
+                                </div>
+
+                                <div ftm-use-html="%{html:fill}">
+                                    如果fill是个节点的话，这段话就会被替换成fill。
+                                </div>
+
+                                <div ftm-use-html="%{js:ftmData.fill}">
+                                    这个也是
+                                </div>
+                            </template>
+                        </template>
+                    </big-code>
+                    so easy吧？
+                </p>
+            </div>
+        </tut-part>
+        <tut-part>
+            title:实例化模板
+            b_color:dodgerblue
+            <div ftm-key="article">
+                实例化？
+                <big-code>
+                    <template ftm-key="ta">
+                        <template ftm-el="fast-tem">这是声明过的模板</template>
+                        <!--实例化-->
+                        <fast-tem></fast-tem>
+                    </template>
+                </big-code>
+                同时您也可以使用JavaScript实例化
+                <big-code>
+                    <template ftm-key="ta">
+                        let div=document.createElement("fast-tem");
+                        document.body.appendChild(div);
+                    </template>
+                </big-code>
+                简单不？
+            </div>
+        </tut-part>
+        <tut-part>
+            <pre ftm-data>
+                title:ftmVariable - 定义变量
+                b_color:dodgerblue
+            </pre>
+            <div ftm-key="article">
+                NO.1 快捷参数<br>
+                先记住这段格式
+                示例：
+                <big-code>
+                    <pre ftm-key="ta">
+                        var_1:hello
+                        var_2:this is:ftm
+                        var_3:  this is a very very very
+                          long article,with many many
+                            lines.but it can works normally.
+                    </pre>
+                </big-code>
+                由此可见，声明短数据就直接 变量名:值 即可。若需要长数据，需要注意接下去的一段前面的空白字符数量要与
+                声明字段的缩进不一样（从Python语法启发）。<br><br>如果说
+                <big-code>
+                    <pre ftm-key="ta">
+                        var_3: this is a very very very
+                        long article,with many many
+                          lines.but can it still works normally?
+                    </pre>
+                </big-code>
+                这样就是错误的！因为单词“long”与“var_3”拥有同样的缩进字符数。
+                <p>
+                    懂得了语法，那把它放在哪里呢？
+                    <br>
+                    可以放在<strong>第一个</strong>文本节点。
+                    <big-code>
+                        <template ftm-key="ta">
+                            <fast-tem>
+                                foo:bar
+                                hello:world
+                            </fast-tem>
+                        </template>
+                    </big-code>
+                    但是如果要多行值，可以放在<strong>第一个</strong>带有<code>ftm-data</code>属性的<code>&lt;pre&gt;</code>元素里
+                    这种pre元素被优先作为配置。
+                    <big-code>
+                        <template ftm-key="ta">
+                            <fast-tem>
+                                这个文本节点会被跳过
+                                <pre ftm-data>
+
+                                    foo:bar
+                                    hello:world
+                                </pre>
+                            </fast-tem>
+                        </template>
+                    </big-code>
+                </p>
+                <p>
+                    除此之外，可以使用<code>ftm-key</code>属性直接声明元素变量。
+                    使用<code>ftm-in-html</code>属性可以只调用其所有子元素。
+                    <big-code>
+                        <template ftm-key="ta">
+                            <fast-tem>
+                                <div ftm-key="element_1">
+                                    会把父元素当做变量保留
+                                </div>
+                                <div ftm-key="element_2" ftm-in-html>
+                                    只会取走这个文本节点
+                                </div>
+                            </fast-tem>
+                        </template>
+                    </big-code>
+                    ftm使用的是<code>DocumentFragment</code>类作为多元素传输的“包装盒”，不会造成多次渲染
+                </p>
+                所有声明的变量都能在<code>element.ftmData</code>中被找到
+            </div>
+        </tut-part>
+        <tut-part>
+            title:关于JavaScript
+            b_color:orange
+            <div ftm-key="article">
+                这个其实也没啥好说的，你可以直接设置一个由模板实例化后的元素的<code>ftmData</code>属性
+                直接赋值和间接改值都是可以的
+                <big-code>
+                    <pre ftm-key="ta">
+                        let f=document.getElementsByTagName("fast-tem")[0];
+                        //或者let f=document.createElement("fast-tem");
+                        let obj={
+                            foo:bar,
+                            creeper:awww man
+                        };
+                        f.ftmData=obj;                //直接赋值
+                        obj[foo]="Woah!";             //然后可以间接改值
+                        f.ftmData.creeper="booom!";   //这样也行
+                        document.body.appendChild(f);
+                    </pre>
+                </big-code>
+                都是响应式的。
+            </div>
+        </tut-part>
+        <tut-part>
+            title:结尾
+            b_color:violet
+            <div ftm-key="article">
+                喜欢吗？给个Star再走吧。。。。
+                <p style="white-space: pre-line;">
+                    全名：fastTemplate.js
+                    作者：FancyFlame
+                    版权：MIT
+                    （正在考虑加入循环模板）
+                    有什么好的建议或者出了bug可以在issue里面告诉我哦
+
+                    全部的名词：
+                    <ol>
+                        <li><code>ftm-el</code></li>
+                        <li><code>ftm-in-html</code></li>
+                        <li><code>ftm-once</code></li>
+                        <li><code>ftm-use-html</code></li>
+                        <li><code>ftm-key</code></li>
+                        <li><code>ftm:...="..."</code></li>
+                        <li><code>%{...}</code></li>
+                        <li><code>%{js:...}</code></li>
+                        <li><code>%{lazy-js:...}</code></li>
+                        <li><code>%{html:...}</code></li>
+                    </ol>
+                </p>
+            </div>
+        </tut-part>
+    </div>
 </body>
 
 </html>

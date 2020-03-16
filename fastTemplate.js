@@ -61,13 +61,16 @@
                 if (isAdd) {
                     templates[temname] = {
                         ele: target,
-                        once: target.getAttribute("ftm-once") == "true"
+                        once: target.getAttribute("ftm-once") == "true",
+                        inHTML: target.hasAttribute("ftm-in-html")
                     };
                 } else {
                     delete templates[temname];
                 }
             } else if (isAdd) {
-                let { ele: tem, once } = templates[target.nodeName.toLowerCase()] || {};
+                if (target.ftmComputed) return;
+                target.ftmComputed = true;
+                let { ele: tem, once, inHTML } = templates[target.nodeName.toLowerCase()] || {};
                 if (!tem) return;
                 {
                     let _once = target.getAttribute("ftm-once");
@@ -90,16 +93,19 @@
                 };
                 //导入模板
                 let _ftmData = (function () {
+                    /*if (target.tagName == "BIG-CODE") debugger;
+                    else console.log(target.tagName);*/
                     if (target.ftmData) return target.ftmData;
                     let obj = {};
                     let str = target.querySelector("pre[ftm-data]");
-                    str=str?str.innerHTML:target.firstChild.nodeValue;//第一个节点应该是文本节点
+                    str = str ? str.innerHTML : target.firstChild.nodeValue;//第一个节点应该是文本节点
+                    console.log(str);
                     //分段写法
                     str = str.replace(/^\n*|\n*$/g, "");
                     let match = /(^\s*)(.*)/mg;
                     //固定的缩进
-                    let keyIndent = match.exec(str)[1];
-                    match.lastIndex = 0;
+                    let keyIndent = /(?<=\n)\s*/.exec(str);
+                    keyIndent = keyIndent ? keyIndent[0] : "";
                     let valueIndent = null;
                     let lastkey;
                     while (true) {
@@ -127,13 +133,13 @@
                         let key = x.getAttribute("ftm-key");
                         if (key === null) continue;
                         //这个是表示只取子元素
-                        if (x.getAttribute("ftm-in-html") !== null) {
-                            if(x.tagName=="TEMPLATE"){
-                                x=x.content;
-                            }else{
+                        if (x.hasAttribute("ftm-in-html") ? x.getAttribute("ftm-in-html") != "false" : inHTML) {
+                            if (x.tagName == "TEMPLATE") {
+                                x = x.content.cloneNode(true);
+                            } else {
                                 let fra = document.createDocumentFragment();
-                                for (let y of x.childNodes){
-                                    fra.append(y);
+                                for (let y of Array.from(x.childNodes)) {//childNodes是实时的，所以需要先转换成Array
+                                    fra.appendChild(y);
                                 }
                                 x = fra;
                             }
@@ -153,10 +159,10 @@
 
                 //读取节点观察节点是否需要绑定到变量
                 function readNode(node) {
-                    if (node.ftmAlive) { return; }
+                    /*if (node.ftmComputed) { return; }
                     else {
                         //console.log(node.ftmAlive);
-                    }
+                    }*/
                     function detectVar(name) {
                         //创建一个观察变量
                         if (!binds[name]) {
@@ -341,7 +347,7 @@
                                         }
                                     });
                                 }
-                                renderAfterFinished(prop, false);
+                                renderAfterFinished(prop);
                             });
                             if (once) {
                                 Object.freeze(v);//禁止修改
@@ -359,18 +365,18 @@
                             }*/
                         }
                     });
-                    node.ftmAlive = true;
+                    node.ftmComputed = true;
                     function setNode(prop) {
                         if (!binds[prop]) {
                             //console.log(binds);
                             return;
                         }
                         let { attr, innr } = binds[prop];
-                        let isHTML=false;
+                        let isHTML = false;
                         //写入属性
                         for (let o of attr) {
                             let [ele, a] = o;
-                            if (ele.getRootNode() != document) {
+                            if (ele.getRootNode() == ele) {
                                 attr.delete(ele);
                                 return;
                             }
@@ -380,25 +386,25 @@
                                 str = overrideBlock(str);
                                 let attrname = n.slice(0, 4) == "ftm:" ? n.slice(4) : n;
                                 if (attrname == "ftm-use-html") {
-                                    if (str instanceof Node) {
+                                    if (str instanceof Node && str.childNodes.length > 0) {
                                         ele.innerHTML = "";
                                         ele.appendChild(str);
-                                        isHTML=true;
+                                        isHTML = true;
                                     }
                                 }
                                 ele.setAttribute(attrname, str);
                             }
                         }
                         //写入文本
-                        if(!isHTML){
-                        innr.forEach((str, va) => {
-                            if (va.getRootNode() != document) {
-                                innr.delete(va);
-                                return;
-                            }
-                            str = overrideBlock(str);
-                            va.nodeValue = String(str);
-                        });
+                        if (!isHTML) {
+                            innr.forEach((str, va) => {
+                                if (va.getRootNode() == va) {
+                                    innr.delete(va);
+                                    return;
+                                }
+                                str = overrideBlock(str);
+                                va.nodeValue = String(str);
+                            });
                         }
                     }
 
