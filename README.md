@@ -1,7 +1,7 @@
 # fastTemplate
 <blockquote>
   Tutorial<br>
-  See <a href="/tutorial.html" target="_blank">tutorial.html</a><br>
+  See <a href="https://fancyflame.github.io/fastTemplate/tutorial.html" target="_blank">tutorial.html</a><br>
 </blockquote>
 <blockquote>
   Example<br>
