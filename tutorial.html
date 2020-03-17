@@ -335,11 +335,11 @@
                         let f=document.getElementsByTagName("fast-tem")[0];
                         //或者let f=document.createElement("fast-tem");
                         let obj={
-                            foo:bar,
-                            creeper:awww man
+                            foo:"bar",
+                            creeper:"awww man"
                         };
                         f.ftmData=obj;                //直接赋值
-                        obj[foo]="Woah!";             //然后可以间接改值
+                        obj.foo="Woah!";             //然后可以间接改值
                         f.ftmData.creeper="booom!";   //这样也行
                         document.body.appendChild(f);
                     </pre>

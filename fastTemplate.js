@@ -99,35 +99,28 @@
                     let obj = {};
                     let str = target.querySelector("pre[ftm-data]");
                     str = str ? str.innerHTML : target.firstChild.nodeValue;//第一个节点应该是文本节点
+                    str = str.replace(/^\s*\n|\n\s*$/g, "");//去掉头尾无用空白符，保留缩进
+                    str = str.split("\n");
                     console.log(str);
-                    //分段写法
-                    str = str.replace(/^\n*|\n*$/g, "");
+                    let keyIndent = str[0].match(/^\s*/)[0];
                     let match = /(^\s*)(.*)/mg;
-                    //固定的缩进
-                    let keyIndent = /(?<=\n)\s*/.exec(str);
-                    keyIndent = keyIndent ? keyIndent[0] : "";
-                    let valueIndent = null;
                     let lastkey;
-                    while (true) {
-                        let fullstr = match.exec(str);
-                        if (fullstr === null) break;
-                        let wsp = fullstr[1];//white space
-                        let word = fullstr[2];//有效字段
-                        if (wsp == keyIndent) {
+                    str.forEach(x => {
+                        let s;
+                        x = x.replace(/^\s*/, function (match) {
+                            s = match;
+                            return "";
+                        });
+                        if (s == keyIndent) {
                             //匹配开端
-                            let foo = word.split(":");
+                            let foo = x.split(":");
                             //缩进是关键字缩进
-                            valueIndent = null;
                             lastkey = foo[0];
                             obj[lastkey] = foo.slice(1).join("");
                         } else {
-                            //缩进是长段文本缩进
-                            if (valueIndent == null) {
-                                valueIndent = wsp;
-                            }
-                            obj[lastkey] += "\n" + (wsp.length > valueIndent.length ? wsp.slice(valueIndent.length) : "") + word;
+                            obj[lastkey] += "\n" + (s > keyIndent ? s.slice(keyIndent.length) : "") + x;
                         }
-                    }
+                    });
                     //获取子html元素设定为参数
                     for (let x of target.children) {
                         let key = x.getAttribute("ftm-key");
