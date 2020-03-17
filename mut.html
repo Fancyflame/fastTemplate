@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+</head>
+<style>
+    #aaa {
+        width: 50vw;
+        height: 50vh;
+        border: 3px solid black;
+        left: 50%;
+        top: 50%;
+        position: absolute;
+        transform: translate(-50%, -50%);
+        background: orange;
+    }
+
+    .ddd {
+        width: 80%;
+        height: 80%;
+        margin: auto;
+        background-color: #ffffff70;
+    }
+</style>
+
+<body>
+    <script src="fastTemplate.js"></script>
+    <script>
+        let aaa;
+        let mo = new MutationObserver((records) => {
+            console.log([...records]);
+        });
+        mo.observe(document.documentElement, {
+            childList: true,
+            subtree: true
+        });
+        window.onload = () => {
+            aaa = document.getElementById("aaa");
+        }
+
+        function cre(name) {
+            return document.createElement(name);
+        }
+    </script>
+    <template ftm-el="f-two">
+        <div class="ddd">噎</div>
+    </template>
+    <template ftm-el="f-one">
+        <div class="ddd" ftm-use-html="%{content}"></div>
+    </template>
+    <div id="aaa">
+        <p>
+            <f-two ftm-key="content"></f-two>
+        </p>
+    </div>
+</body>
+
+</html>
