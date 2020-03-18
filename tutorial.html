@@ -109,16 +109,88 @@
         <div class="bigcode">%{js:returnData(ftmData.ta.innerHTML)}</div>
     </template>
     <div>
+
         <tut-part ftm-once="true">
             title:简介 - 什么是FastTemplate
             b_color:violet
             <div ftm-key="article">
                 FastTemplate，简称FTM，是由FancyFlame受Vue.js启发随手做的一个小型轻量级HTML框架，更适合
-                原生开发者，这个网页就是以ftm为框架制作的。同时，它也完成了无JavaScript搭建模板，实时响应，以及js快速计算。
-                它甚至没有全局常量，仅对符合要求的元素进行稍微更改，不会出现任何
+                原生开发者，这个网页就是以ftm为框架制作的。同时，它也完成了无JavaScript搭建模板，实时响应，以及js快捷计算。
+                ftm门槛很低，它甚至没有全局常量，仅对符合要求的元素进行更改，不会出现任何
                 意想不到的事情，即便您对FTM一无所知，调用它也仍然不会破坏您的结构。最重要的是
                 <h3 style="text-align:center;">它十分人性化</h3>
-                废话少说，现在开始教程吧！
+                先来看一看ftm的演示吧！
+            </div>
+        </tut-part>
+        <tut-part>
+            title:FastTemplate的开篇演示
+            b_color:violet
+            <div ftm-key="article">
+                <p>
+                    使用FastTemplate：
+                    <big-code>
+                        <template ftm-key="ta">
+                            <template ftm-el="my-card">
+                                <div>
+                                    <h1>%{title}</h1>
+                                    <p ftm-use-html="article" class="paragraph"></p>
+                                    <hr>
+                                    Made By %{author}
+                                </div>
+                            </template>
+                            <!--实例化-->
+                            <my-card>
+                                title:新年快乐
+                                author:张三
+                                <div ftm-in-html ftm-key="article">
+                                    <img ftm:src="/happyNewYear.jpg">
+                                    新年了，你什么时候回来呢
+                                </div>
+                            </my-card>
+                            <my-card>
+                                title:圣诞快乐
+                                author:李四
+                                <div ftm-in-html ftm-key="article">
+                                    圣诞节到了，这里都在下雪呢：<br>
+                                    <img ftm:src="/christmas.jpg">
+                                    一起来过圣诞节吗？
+                                </div>
+                            </my-card>
+                        </template>
+                    </big-code>
+                </p>
+                <p>
+                    不使用FastTemplate：
+                    <big-code>
+                        <template ftm-key="ta">
+                            <div>
+                                <h1>新年快乐</h1>
+                                <p class="paragraph">
+                                    <img ftm:src="/happyNewYear.jpg">
+                                    新年了，你什么时候回来呢
+                                </p>
+                                <hr>
+                                Made By 张三
+                            </div>
+                            <div>
+                                <h1>圣诞快乐</h1>
+                                <p class="paragraph">
+                                    圣诞节到了，这里都在下雪呢：<br>
+                                    <img ftm:src="/christmas.jpg">
+                                    一起来过圣诞节吗？
+                                </p>
+                                <hr>
+                                Made By 李四
+                            </div>
+                        </template>
+                    </big-code>
+                </p>
+                嗯，这个小演示在篇幅上是差不多的，ftm甚至还略大。但是在可维护方面上ftm绝对是更胜一筹。而且，
+                如果模板足够庞大，也会凸显出ftm的使用价值哦！<br>
+                还有一个强大的理由使用ftm，那就是如果您有这样的经历，您在用js动态生成模板的时候，需要先cloneNode，然后绞尽脑汁使用
+                querySelector或者getElement(s)ByXXX来定位元素（真是一个噩梦啊），然后再一个个setAttribute
+                和一个个设置innerHTML。而ftm只需要对元素的ftmData属性修改，而且是响应式的！<br>
+                所以，我们开始教程吧！
             </div>
         </tut-part>
         <tut-part>
@@ -319,7 +391,7 @@
                             </fast-tem>
                         </template>
                     </big-code>
-                    ftm使用的是<code>DocumentFragment</code>类作为多元素传输的“包装盒”，不会造成多次渲染
+                    ftm使用的是<code>DocumentFragment</code>类作为多元素传输的“包装盒”，不会造成多次渲染。
                 </p>
                 所有声明的变量都能在<code>element.ftmData</code>中被找到
             </div>
@@ -345,6 +417,57 @@
                     </pre>
                 </big-code>
                 都是响应式的。
+            </div>
+        </tut-part>
+        <tut-part>
+            title:嵌套
+            b_color:cyan
+            <div ftm-key="article">
+                ftm声明可以是嵌套式的（简称套娃），这很好理解。
+                我们全局声明一个f-two。
+                <big-code>
+                    <div ftm-key="ta">
+                        <template ftm-el="f-two">
+                            Hey there!
+                        </template>
+                    </div>
+                </big-code>
+                <p>
+                    第一种：模板嵌套
+                    <big-code>
+                        <template ftm-key="ta">
+                            <template ftm-el="f-one">
+                                <f-two></f-two>
+                            </template>
+                            <f-one></f-one>
+                        </template>
+                    </big-code>
+                </p>
+                <p>
+                    第二种：实例嵌套
+                    <big-code>
+                        <template ftm-key="ta">
+                            <template ftm-el="f-one">
+                                <div ftm-use-html="%{html}"></div>
+                            </template>
+                            <f-one>
+                                <f-two ftm-key="html"></f-two>
+                            </f-one>
+                        </template>
+                    </big-code>
+                </p>
+                <p>
+                    <del>第三种：死机警告</del>
+                    <big-code>
+                        <template ftm-key="ta">
+                            <template ftm-el="f-one">
+                                <f-one></f-one>
+                            </template>
+                            <!--执行一下卡死-->
+                            <f-one></f-one>
+                        </template>
+                    </big-code>
+                </p>
             </div>
         </tut-part>
         <tut-part>
