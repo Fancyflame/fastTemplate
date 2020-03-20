@@ -47,14 +47,20 @@
         }
     </script>
     <template ftm-el="f-two">
-        <div class="ddd">噎</div>
+        <div class="ddd">%{word}</div>
     </template>
     <template ftm-el="f-one">
         <div class="ddd" ftm-use-html="%{content}"></div>
     </template>
     <div id="aaa">
         <p>
-            <f-one ftm-key="content"></f-one>
+            <f-one>
+                word:100
+                dw:333
+                <f-two ftm-key="content">
+                    +{^}
+                </f-two>
+            </f-one>
         </p>
     </div>
 </body>

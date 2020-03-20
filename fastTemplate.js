@@ -47,14 +47,315 @@
     *ftmData可以被直接被赋值，但是不推荐这样做（除非还没绑定到document，不然可能有未知的bug），建议仅修改和获取
     *元素会根据文档顺序读取，请确保template元素在模板元素前面，或者在页面加载完后动态生成也是可以的
 */
+const FTM = {};
 {
     const templates = {};
+    const Binds = function (node) {
+        let binds = this;
+        let connector = null;//绑定到ftmData
+        Object.defineProperty(binds, "connector", {
+            get: function () {
+                return connector;
+            },
+            set: function (data) {
+                if (connector) connector.unwatch(binds);
+                connector = data;
+                data.watch(binds);
+            }
+        });
+
+        binds.listeners = {
+            //模板里头绑定的数据
+            /*
+            var1:{
+                attr:Map {
+                    [object HTMLDivElement]:{
+                        attrname1:"%{foo}",
+                        attrname2:"abcde%{bar}"
+                    }
+                },
+                innr:Map {
+                    [object #Text]:"%{name} is a text node!!"
+                }
+            }
+            */
+        };
+
+        //这块负责读取需要的模块
+        const detectVar = (name) => {
+            //创建一个观察变量
+            if (!binds.listeners[name]) {
+                (binds.listeners[name] = {
+                    attr: new Map(),
+                    innr: new Map()
+                });
+            }
+            return binds.listeners[name];
+        };
+        detectVar("##javascript");
+        function getRequirement(refe) {
+            if (refe.nodeType === 1) {
+                //元素节点
+                for (let i = 0; i < refe.attributes.length; i++) {
+                    let a = refe.attributes[i];
+                    let arr = readBlock(a.value);
+                    arr.forEach((e) => {
+                        //e = e.slice(2, -1);//去除%{和}
+                        let obj = detectVar(e);
+                        let current = obj.attr.get(refe);//变量的属性的当前元素分区
+                        if (!current) {
+                            current = {};
+                            obj.attr.set(refe, current);
+                        }
+                        current[a.name] = a.value;
+                    });
+                }
+                refe.childNodes.forEach(e => { if (!e.ftmComputed) DOMchange(e, binds); });
+            } else if (refe.nodeType === 3) {
+                //文本节点
+                let arr = readBlock(refe.nodeValue);
+                arr.forEach((e) => {
+                    //e = e.slice(2, -1);//去除%{和}
+                    let obj = detectVar(e);
+                    obj.innr.set(refe, refe.nodeValue);
+                });
+            }
+        }
+        binds.watch = getRequirement;
+        getRequirement(node);
+
+        //辅助读取ftmBlock
+        function _readBlock(str) {
+            let blocks = [];//里面提供：[<number Start>,<string completeContent>,<string requires>]
+            let reg = /%{/g;
+            //检测每个可能是ftmBlock的块
+            while (true) {
+                if (!reg.exec(str)) break;//这里还有记录lastIndex的作用，此时lastIndex是完整的ftmBlock开端
+                let startIndex = reg.lastIndex - 2;
+                let rest = str.slice(reg.lastIndex);//从完整的ftmBlock开端开始截取后面的字符串
+                let type = rest.match(/^js\:|^lazy-js\:|^html\:|^[\w\$]+(?=\})/);
+                type = type && type[0];
+                if (!type) {
+                    //不符合要求
+                    continue;
+                }
+                //深入ftmBlock检测所需变量
+                switch (type) {
+                    case null:
+                        break;
+                    case "lazy-js":
+                    case "js:":
+                        let stacks = 1;//记录大括号
+                        let quotes = null;
+                        let reg2 = /(?<!\\)[`"'\/]|[{}]/g;
+                        while (true) {
+                            let spliter = reg2.exec(rest)[0];
+                            if (!spliter) break;//括号未闭合
+                            if (/["'`\/]/.test(spliter)) {
+                                //是引号
+                                if (!quotes) quotes = spliter;
+                                else if (quotes == spliter) quotes = null;
+                            } else {
+                                if (quotes) continue;//如果被包含在引号内则跳过
+                                if (spliter == "{") stacks++;
+                                else if (spliter == "}") {
+                                    if (--stacks == 0) {
+                                        //js引用结束，输出也包含}
+                                        let ctt = str.slice(startIndex, reg.lastIndex + reg2.lastIndex);
+                                        //lazy-js就是仅当当前属性或文本变化时才被动渲染
+                                        if (type == "js:") blocks.push([startIndex, ctt, "##javascript"]);
+                                        reg.lastIndex += ctt.length + 1 - 2;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    case "html:": {//这个括号创建局部环境
+                        let skip = rest.indexOf("}");
+                        blocks.push([
+                            startIndex,
+                            "%{" + rest.slice(0, skip) + "}",  //不用skip+1是因为这样利于理解
+                            rest.slice(rest.indexOf(":") + 1, skip)
+                        ]);
+                        reg.lastIndex += skip + 1 - 2;
+                        break;
+                    }
+                    default: {
+                        let skip = rest.indexOf("}");
+                        blocks.push([
+                            startIndex, "%{" + rest.slice(0, skip) + "}", rest.slice(0, skip)
+                        ]);
+                        reg.lastIndex += skip + 1 - 2;
+                        break;
+                    }
+                }
+            }
+            return blocks;
+        }
+        //给出需要绑定的变量
+        function readBlock(str) {
+            return _readBlock(str).map(x => x[2]);
+        }
+        //实例化一个模板
+        function overrideBlock(str) {
+            if (!binds.connector) throw "Please connect to a Data object first";
+            let offset = 0;
+            let arr = _readBlock(str);
+            for (let o of arr) {
+                let [start, content] = o;
+                let rawctt = content.slice(content.indexOf(":") > -1 ? content.indexOf(":") + 1 : 2, -1);//裁剪出来的有效部分
+                let type = content.indexOf(":");
+                type = type == -1 ? "string" : content.slice(2, type);
+                let repla = "<Err_Unknown_Type>";
+                if (type == "string") {
+                    repla = connector.val[rawctt];
+                    if (repla instanceof Node) return repla;
+                    else repla = String(repla);
+                } else if (type == "js" || type == "lazy-js") {
+                    try {
+                        repla = new Function("ftmData", "return (" + rawctt + ")")(connector.val);
+                        if (repla instanceof Node) return repla;
+                        else repla = String(repla);
+                    } catch (err) {
+                        repla = err.toString();
+                    }
+                } else if (type == "html") {
+                    let html = ftmData[rawctt];
+                    return html.cloneNode(true);
+                }
+                str = str.slice(0, start + offset) + repla + str.slice(start + offset + content.length);
+                offset += repla.length - content.length;
+            }
+            return str;
+        }
+        //写入
+        function setNode(prop) {
+            if (!binds.listeners[prop]) {
+                //console.log(binds);
+                return;
+            }
+            let { attr, innr } = binds.listeners[prop];
+            let isHTML = false;
+            //写入属性
+            for (let o of attr) {
+                let [ele, a] = o;
+                if (ele.getRootNode() == ele) {
+                    attr.delete(ele);
+                    return;
+                }
+                //a是个普通的object，储存了属性的键值信息
+                for (let n in a) {
+                    let str = a[n];//属性模板字符串
+                    str = overrideBlock(str);
+                    let attrname = n.slice(0, 4) == "ftm:" ? n.slice(4) : n;
+                    if (attrname == "ftm-use-html") {
+                        if (str instanceof Node && str.childNodes.length > 0) {
+                            ele.innerHTML = "";
+                            ele.appendChild(str);
+                            isHTML = true;
+                        }
+                    }
+                    ele.setAttribute(attrname, str);
+                }
+            }
+            //写入文本
+            if (!isHTML) {
+                innr.forEach((str, va) => {
+                    if (va.getRootNode() == va) {
+                        innr.delete(va);
+                        return;
+                    }
+                    str = overrideBlock(str);
+                    va.nodeValue = String(str);
+                });
+            }
+        }
+
+        //延迟渲染
+        let waitingRender = new Set();
+        function renderAfterFinished(prop) {
+            if (waitingRender.size == 0) {
+                setTimeout(() => {
+                    waitingRender.add("##javascript");
+                    waitingRender.forEach(e => {
+                        setNode(e);
+                    });
+                    waitingRender.clear();
+                });
+            }
+            waitingRender.add(prop);
+        }
+        binds.render = renderAfterFinished;
+    };
+    const DataSource = function (once) {
+        /*if (node.ftmComputed) { return; }
+        else {
+            //console.log(node.ftmAlive);
+        }*/
+        if (!new.target) return new DataSource(...arguments);
+        let data = this;
+        let watchPool = new Set();
+        let ftmData = {};
+        let ftmProxy;
+        data.watch = function (watcher) {
+            watchPool.add(watcher);
+            Object.keys(ftmData).forEach(x => watcher.render(x));
+        };
+        data.unwatch = function (watcher) {
+            watchPool.delete(watcher);
+        };
+        //设置ftmProxy选项
+        let haveSettedData = false;
+        //console.log(target.ftmData);
+        Object.defineProperty(data, "val", {
+            get: function () {
+                return ftmProxy;
+            },
+            set: function (v) {
+                //劫持get和set
+                if (once && haveSettedData) return;
+                haveSettedData = true;
+                ftmData = Object.assign({}, v);
+                Object.keys(v).forEach(prop => {
+                    if (!once) {
+                        Object.defineProperty(v, prop, {
+                            get: function () {
+                                return ftmData[prop];
+                            },
+                            set: function (v) {
+                                ftmData[prop] = v;
+                                renderAfterFinished(prop);
+                            }
+                        });
+                    }
+                    watchPool.forEach(x => {
+                        x.render(prop);
+                    });
+                });
+                if (once) {
+                    Object.freeze(v);//禁止修改
+                }
+                ftmProxy = v;
+                /*ftmData = {};
+                ftmProxy = new Proxy(ftmData, {
+                    set: function (target, prop, value) {
+                        target[prop] = value;
+                        setNode(prop);
+                    }
+                });
+                for (let i in v) {
+                    ftmProxy[i] = v[i];
+                }*/
+            }
+        });
+    };
+    FTM.DataSource = DataSource;
     function DOMchange(target, parentBinds, isAdd = true) {
 
-        if (target.nodeName.toLowerCase() == "template") {
+        if (target.nodeName.toLowerCase() == "template" && target.hasAttribute("ftm-el")) {
             //录入模板
             let temname = target.getAttribute("ftm-el");
-            if (!temname) return;
             if (isAdd) {
                 templates[temname] = {
                     ele: target,
@@ -68,39 +369,28 @@
             if (target.ftmComputed) return;
             target.ftmComputed = true;
             let { ele: tem, once, inHTML } = templates[target.nodeName.toLowerCase()] || {};
+            function getLoader() {
+                let n = target.parentElement;
+                while (n && !n.ftmData) {
+                    n = n.parentElement;
+                }
+                return n;
+            }
             if (!tem) {
                 if (!parentBinds) {
-                    let n = target.parentElement;
-                    while (n && !n._ftmBinds) {
-                        n = n.parentElement;
-                    }
-                    if (n) parentBinds = n._ftmBinds;
+                    let n = getLoader();
+                    if (n) parentBinds = n.ftmBinds;
                     else return;
                 }
-                readNode(target, parentBinds);
+                parentBinds.watch(target);
                 return;
             }
             {
                 let _once = target.getAttribute("ftm-once");
                 if (_once) once = _once == "true";
             }
-            let binds = { //模板里头绑定的数据
-                /*
-                var1:{
-                    attr:Map {
-                        [object HTMLDivElement]:{
-                            attrname1:"%{foo}",
-                            attrname2:"abcde%{bar}"
-                        }
-                    },
-                    innr:Map {
-                        [object #Text]:"%{name} is a text node!!"
-                    }
-                }
-                */
-            };
-            target._ftmBinds = binds;
-            //导入模板
+
+            let _connector;//要连接到的其它ftmData
             let _ftmData = (function () {
                 /*if (target.tagName == "BIG-CODE") debugger;
                 else console.log(target.tagName);*/
@@ -114,13 +404,48 @@
                 let keyIndent = str[0].match(/^\s*/)[0];
                 let match = /(^\s*)(.*)/mg;
                 let lastkey;
-                str.forEach(x => {
+                for (let i in str) {
+                    let x = str[i];
                     let s;
                     x = x.replace(/^\s*/, function (match) {
                         s = match;
                         return "";
                     });
                     if (s == keyIndent) {
+                        function getFtmData(s) {
+                            let data = s == "^" ? getLoader() : (() => {
+                                try {
+                                    return document.querySelector(s);
+                                } catch (err) {
+                                    console.warn("Invalid selector " + s);
+                                    return null;
+                                }
+                            });
+                            if (data && !data.ftmData) {
+                                console.warn("The element attach to must has ftmData");
+                                console.warn(data);
+                                return null;
+                            }
+                            return data && data.ftmData;
+                        }
+                        if (i == "0") {
+                            let isAttach = /^\=\{[^\}]+\}$/m;
+                            if (isAttach.test(x)) {
+                                //直接绑定
+                                let data = getFtmData(x.match(isAttach)[0].slice(2, -1));
+                                if (data) _connector = data;
+                                continue;
+                            }
+                        }
+                        let isCopy = /^\+\{[^\}]+\}$/;
+                        if (isCopy.test(x)) {
+                            //复制一份
+                            let data = getFtmData(x.match(isCopy)[0].slice(2, -1));
+                            if (data) {
+                                Object.assign(obj, data.val);
+                            }
+                            continue;
+                        }
                         //匹配开端
                         let foo = x.split(":");
                         //缩进是关键字缩进
@@ -129,7 +454,7 @@
                     } else {
                         obj[lastkey] += "\n" + (s > keyIndent ? s.slice(keyIndent.length) : "") + x;
                     }
-                });
+                }
                 //获取子html元素设定为参数
                 for (let x of target.children) {
                     let key = x.getAttribute("ftm-key");
@@ -150,7 +475,16 @@
                 }
                 return obj;
             })();
-            let ftmData = {};
+
+            //配置
+            let ftmData = new DataSource(once);
+            ftmData.val = _ftmData;
+            target.ftmData = ftmData;
+            let binds = new Binds(target);
+            target.ftmBinds = binds;
+            binds.connector = _connector || ftmData;
+
+            //导入模板
             target.innerHTML = "";
             let ctt = document.importNode(tem.content, true);
             target.appendChild(ctt);
@@ -160,259 +494,8 @@
             //const reg = /\%{([\w\$]+)}/g;
 
             //读取节点观察节点是否需要绑定到变量
-            function readNode(node, binds) {
-                /*if (node.ftmComputed) { return; }
-                else {
-                    //console.log(node.ftmAlive);
-                }*/
-                function detectVar(name) {
-                    //创建一个观察变量
-                    if (!binds[name]) {
-                        (binds[name] = {
-                            attr: new Map(),
-                            innr: new Map()
-                        });
-                    }
-                    return binds[name];
-                }
 
-                //辅助读取ftmBlock
-                function _readBlock(str) {
-                    let blocks = [];//里面提供：[<number Start>,<string completeContent>,<string requires>]
-                    let reg = /%{/g;
-                    //检测每个可能是ftmBlock的块
-                    while (true) {
-                        if (!reg.exec(str)) break;//这里还有记录lastIndex的作用，此时lastIndex是完整的ftmBlock开端
-                        let startIndex = reg.lastIndex - 2;
-                        let rest = str.slice(reg.lastIndex);//从完整的ftmBlock开端开始截取后面的字符串
-                        let type = rest.match(/^js\:|^lazy-js\:|^html\:|^[\w\$]+(?=\})/);
-                        type = type && type[0];
-                        if (!type) {
-                            //不符合要求
-                            continue;
-                        }
-                        //深入ftmBlock检测所需变量
-                        switch (type) {
-                            case null:
-                                break;
-                            case "lazy-js":
-                            case "js:":
-                                let stacks = 1;//记录大括号
-                                let quotes = null;
-                                let reg2 = /(?<!\\)[`"'\/]|[{}]/g;
-                                while (true) {
-                                    let spliter = reg2.exec(rest)[0];
-                                    if (!spliter) break;//括号未闭合
-                                    if (/["'`\/]/.test(spliter)) {
-                                        //是引号
-                                        if (!quotes) quotes = spliter;
-                                        else if (quotes == spliter) quotes = null;
-                                    } else {
-                                        if (quotes) continue;//如果被包含在引号内则跳过
-                                        if (spliter == "{") stacks++;
-                                        else if (spliter == "}") {
-                                            if (--stacks == 0) {
-                                                //js引用结束，输出也包含}
-                                                let ctt = str.slice(startIndex, reg.lastIndex + reg2.lastIndex);
-                                                //lazy-js就是仅当当前属性或文本变化时才被动渲染
-                                                if (type == "js:") blocks.push([startIndex, ctt, "##javascript"]);
-                                                reg.lastIndex += ctt.length + 1 - 2;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                                break;
-                            case "html:": {//这个括号创建局部环境
-                                let skip = rest.indexOf("}");
-                                blocks.push([
-                                    startIndex,
-                                    "%{" + rest.slice(0, skip) + "}",  //不用skip+1是因为这样利于理解
-                                    rest.slice(rest.indexOf(":") + 1, skip)
-                                ]);
-                                reg.lastIndex += skip + 1 - 2;
-                                break;
-                            }
-                            default: {
-                                let skip = rest.indexOf("}");
-                                blocks.push([
-                                    startIndex, "%{" + rest.slice(0, skip) + "}", rest.slice(0, skip)
-                                ]);
-                                reg.lastIndex += skip + 1 - 2;
-                                break;
-                            }
-                        }
-                    }
-                    return blocks;
-                }
-                //给出需要绑定的变量
-                function readBlock(str) {
-                    return _readBlock(str).map(x => x[2]);
-                }
-                //实例化一个模板
-                function overrideBlock(str) {
-                    let offset = 0;
-                    let arr = _readBlock(str);
-                    for (let o of arr) {
-                        let [start, content] = o;
-                        let rawctt = content.slice(content.indexOf(":") > -1 ? content.indexOf(":") + 1 : 2, -1);//裁剪出来的有效部分
-                        let type = content.indexOf(":");
-                        type = type == -1 ? "string" : content.slice(2, type);
-                        let repla = "<Err_Unknown_Type>";
-                        if (type == "string") {
-                            repla = ftmData[rawctt];
-                            if (repla instanceof Node) return repla;
-                            else repla = String(repla);
-                        } else if (type == "js" || type == "lazy-js") {
-                            try {
-                                repla = new Function("ftmData", "return (" + rawctt + ")")(ftmProxy);
-                                if (repla instanceof Node) return repla;
-                                else repla = String(repla);
-                            } catch (err) {
-                                repla = err.toString();
-                            }
-                        } else if (type == "html") {
-                            let html = ftmData[rawctt];
-                            return html.cloneNode(true);
-                        }
-                        str = str.slice(0, start + offset) + repla + str.slice(start + offset + content.length);
-                        offset += repla.length - content.length;
-                    }
-                    return str;
-                }
-                detectVar("##javascript");
-                if (node.nodeType === 1) {
-                    //元素节点
-                    for (let i = 0; i < node.attributes.length; i++) {
-                        let a = node.attributes[i];
-                        let arr = readBlock(a.value);
-                        arr.forEach((e) => {
-                            //e = e.slice(2, -1);//去除%{和}
-                            let obj = detectVar(e);
-                            let current = obj.attr.get(node);//变量的属性的当前元素分区
-                            if (!current) {
-                                current = {};
-                                obj.attr.set(node, current);
-                            }
-                            current[a.name] = a.value;
-                        });
-                    }
-                    node.childNodes.forEach(e => DOMchange(e, binds));
-                } else if (node.nodeType === 3) {
-                    //文本节点
-                    let arr = readBlock(node.nodeValue);
-                    arr.forEach((e) => {
-                        //e = e.slice(2, -1);//去除%{和}
-                        let obj = detectVar(e);
-                        obj.innr.set(node, node.nodeValue);
-                    });
-                }
-
-                let waitingRender;
-                //延迟渲染
-                function renderAfterFinished(prop) {
-                    if (!waitingRender) {
-                        waitingRender = [];
-                        setTimeout(() => {
-                            waitingRender.push("##javascript");
-                            waitingRender.forEach(e => {
-                                setNode(e);
-                            });
-                            waitingRender = null;
-                        });
-                    }
-                    if (!waitingRender.includes(prop)) waitingRender.push(prop);
-                }
-
-                //设置ftmProxy选项
-                let ftmProxy;
-                let haveSettedData = false;
-                //console.log(target.ftmData);
-                Object.defineProperty(node, "ftmData", {
-                    get: function () {
-                        return ftmProxy;
-                    },
-                    set: function (v) {
-                        //劫持get和set
-                        if (once && haveSettedData) return;
-                        haveSettedData = true;
-                        ftmData = Object.assign({}, v);
-                        Object.keys(v).forEach(prop => {
-                            if (!once) {
-                                Object.defineProperty(v, prop, {
-                                    get: function () {
-                                        return ftmData[prop];
-                                    },
-                                    set: function (v) {
-                                        ftmData[prop] = v;
-                                        renderAfterFinished(prop);
-                                    }
-                                });
-                            }
-                            renderAfterFinished(prop);
-                        });
-                        if (once) {
-                            Object.freeze(v);//禁止修改
-                        }
-                        ftmProxy = v;
-                        /*ftmData = {};
-                        ftmProxy = new Proxy(ftmData, {
-                            set: function (target, prop, value) {
-                                target[prop] = value;
-                                setNode(prop);
-                            }
-                        });
-                        for (let i in v) {
-                            ftmProxy[i] = v[i];
-                        }*/
-                    }
-                });
-                node.ftmComputed = true;
-                function setNode(prop) {
-                    if (!binds[prop]) {
-                        //console.log(binds);
-                        return;
-                    }
-                    let { attr, innr } = binds[prop];
-                    let isHTML = false;
-                    //写入属性
-                    for (let o of attr) {
-                        let [ele, a] = o;
-                        if (ele.getRootNode() == ele) {
-                            attr.delete(ele);
-                            return;
-                        }
-                        //a是个普通的object，储存了属性的键值信息
-                        for (let n in a) {
-                            let str = a[n];//属性模板字符串
-                            str = overrideBlock(str);
-                            let attrname = n.slice(0, 4) == "ftm:" ? n.slice(4) : n;
-                            if (attrname == "ftm-use-html") {
-                                if (str instanceof Node && str.childNodes.length > 0) {
-                                    ele.innerHTML = "";
-                                    ele.appendChild(str);
-                                    isHTML = true;
-                                }
-                            }
-                            ele.setAttribute(attrname, str);
-                        }
-                    }
-                    //写入文本
-                    if (!isHTML) {
-                        innr.forEach((str, va) => {
-                            if (va.getRootNode() == va) {
-                                innr.delete(va);
-                                return;
-                            }
-                            str = overrideBlock(str);
-                            va.nodeValue = String(str);
-                        });
-                    }
-                }
-            }
             //最后把初始化数据应用进去
-            readNode(target, binds);
-            target.ftmData = _ftmData;
         }
     }
     let mutobs = new MutationObserver((records) => {
