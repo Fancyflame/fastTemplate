@@ -52,14 +52,14 @@ const FTM = {};
     const templates = {};
     const Binds = function (node) {
         let binds = this;
-        let connector = null;//绑定到ftmData
-        Object.defineProperty(binds, "connector", {
+        let source = null;//绑定到ftmData
+        Object.defineProperty(binds, "source", {
             get: function () {
-                return connector;
+                return source;
             },
             set: function (data) {
-                if (connector) connector.unwatch(binds);
-                connector = data;
+                if (source) source.unwatch(binds);
+                source = data;
                 data.watch(binds);
             }
         });
@@ -199,7 +199,7 @@ const FTM = {};
         }
         //实例化一个模板
         function overrideBlock(str) {
-            if (!binds.connector) throw "Please connect to a Data object first";
+            if (!binds.source) throw "Please connect to a Data object first";
             let offset = 0;
             let arr = _readBlock(str);
             for (let o of arr) {
@@ -209,12 +209,12 @@ const FTM = {};
                 type = type == -1 ? "string" : content.slice(2, type);
                 let repla = "<Err_Unknown_Type>";
                 if (type == "string") {
-                    repla = connector.val[rawctt];
+                    repla = source.val[rawctt];
                     if (repla instanceof Node) return repla;
                     else repla = String(repla);
                 } else if (type == "js" || type == "lazy-js") {
                     try {
-                        repla = new Function("ftmData", "return (" + rawctt + ")")(connector.val);
+                        repla = new Function("ftmData", "return (" + rawctt + ")")(source.val);
                         if (repla instanceof Node) return repla;
                         else repla = String(repla);
                     } catch (err) {
@@ -390,7 +390,7 @@ const FTM = {};
                 if (_once) once = _once == "true";
             }
 
-            let _connector;//要连接到的其它ftmData
+            let _source;//要连接到的其它ftmData
             let _ftmData = (function () {
                 /*if (target.tagName == "BIG-CODE") debugger;
                 else console.log(target.tagName);*/
@@ -433,7 +433,7 @@ const FTM = {};
                             if (isAttach.test(x)) {
                                 //直接绑定
                                 let data = getFtmData(x.match(isAttach)[0].slice(2, -1));
-                                if (data) _connector = data;
+                                if (data) _source = data;
                                 continue;
                             }
                         }
@@ -482,7 +482,7 @@ const FTM = {};
             target.ftmData = ftmData;
             let binds = new Binds(target);
             target.ftmBinds = binds;
-            binds.connector = _connector || ftmData;
+            binds.source = _source || ftmData;
 
             //导入模板
             target.innerHTML = "";
