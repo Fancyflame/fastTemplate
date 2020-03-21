@@ -41,24 +41,25 @@
         window.onload = () => {
             aaa = document.getElementById("aaa");
         }
-
         function cre(name) {
             return document.createElement(name);
         }
     </script>
     <template ftm-el="f-two">
-        <div class="ddd">%{word}</div>
+        <div class="ddd">%{js:ftmData.word*20}</div>
     </template>
     <template ftm-el="f-one">
         <div class="ddd" ftm-use-html="%{content}"></div>
     </template>
+    <ftm-src id="sources">
+        word:100
+        dw:333
+    </ftm-src>
     <div id="aaa">
         <p>
             <f-one>
-                word:100
-                dw:333
                 <f-two ftm-key="content">
-                    +{^}
+                    ={#sources}
                 </f-two>
             </f-one>
         </p>

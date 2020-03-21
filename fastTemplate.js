@@ -47,9 +47,77 @@
     *ftmData可以被直接被赋值，但是不推荐这样做（除非还没绑定到document，不然可能有未知的bug），建议仅修改和获取
     *元素会根据文档顺序读取，请确保template元素在模板元素前面，或者在页面加载完后动态生成也是可以的
 */
-const FTM = {};
 {
     const templates = {};
+    const DataSource = function (node, once) {
+        /*if (node.ftmComputed) { return; }
+        else {
+            //console.log(node.ftmAlive);
+        }*/
+        if (!new.target) return new DataSource(...arguments);
+        let data = this;
+        let watchPool = new Set();
+        let ftmData = {};
+        let ftmProxy;
+        data[DataSource.watch] = function (watcher) {
+            watchPool.add(watcher);
+            Object.keys(ftmData).forEach(x => watcher.render(x));
+        };
+        data[DataSource.unwatch] = function (watcher) {
+            watchPool.delete(watcher);
+        };
+        //设置ftmProxy选项
+        let haveSettedData = false;
+        //console.log(target.ftmData);
+        Object.defineProperty(node, "ftmData", {
+            get: function () {
+                return data;
+            },
+            set: function (v) {
+                //劫持get和set
+                if (once && haveSettedData) return;
+                haveSettedData = true;
+                Object.keys(ftmData).forEach(x => delete data[x]);
+                ftmData = Object.assign({}, v);
+                Object.keys(v).forEach(prop => {
+                    if (!once) {
+                        let options = {
+                            get: function () {
+                                return ftmData[prop];
+                            },
+                            set: function (v) {
+                                ftmData[prop] = v;
+                                watchPool.forEach(x => {
+                                    x.render(prop);
+                                });
+                            }
+                        };
+                        Object.defineProperty(v, prop, options);
+                        Object.defineProperty(data, prop, options);
+                    }
+                    watchPool.forEach(x => {
+                        x.render(prop);
+                    });
+                });
+                if (once) {
+                    Object.freeze(v);//禁止修改
+                }
+                ftmProxy = v;
+                /*ftmData = {};
+                ftmProxy = new Proxy(ftmData, {
+                    set: function (target, prop, value) {
+                        target[prop] = value;
+                        setNode(prop);
+                    }
+                });
+                for (let i in v) {
+                    ftmProxy[i] = v[i];
+                }*/
+            }
+        });
+    };
+    DataSource.watch = Symbol("DataSourceWatch");
+    DataSource.unwatch = Symbol("DataSourceUnwatch");
     const Binds = function (node) {
         let binds = this;
         let source = null;//绑定到ftmData
@@ -58,9 +126,9 @@ const FTM = {};
                 return source;
             },
             set: function (data) {
-                if (source) source.unwatch(binds);
+                if (source) source[DataSource.unwatch](binds);
                 source = data;
-                data.watch(binds);
+                data[DataSource.watch](binds);
             }
         });
 
@@ -133,7 +201,7 @@ const FTM = {};
                 if (!reg.exec(str)) break;//这里还有记录lastIndex的作用，此时lastIndex是完整的ftmBlock开端
                 let startIndex = reg.lastIndex - 2;
                 let rest = str.slice(reg.lastIndex);//从完整的ftmBlock开端开始截取后面的字符串
-                let type = rest.match(/^js\:|^lazy-js\:|^html\:|^[\w\$]+(?=\})/);
+                let type = rest.match(/^js\:|^glb-js\:|^html\:|^[\w\$]+(?=\})/);
                 type = type && type[0];
                 if (!type) {
                     //不符合要求
@@ -143,7 +211,7 @@ const FTM = {};
                 switch (type) {
                     case null:
                         break;
-                    case "lazy-js":
+                    case "glb-js:":
                     case "js:":
                         let stacks = 1;//记录大括号
                         let quotes = null;
@@ -163,7 +231,12 @@ const FTM = {};
                                         //js引用结束，输出也包含}
                                         let ctt = str.slice(startIndex, reg.lastIndex + reg2.lastIndex);
                                         //lazy-js就是仅当当前属性或文本变化时才被动渲染
-                                        if (type == "js:") blocks.push([startIndex, ctt, "##javascript"]);
+                                        if (type == "glb-js:") blocks.push([startIndex, ctt, "##javascript"]);
+                                        else {
+                                            let raw = ctt.slice(ctt.indexOf(":") + 1, -1);
+                                            let detect = raw.match(/(?<=(?<![\w\$])ftmData\.)([\w\$]+)/g);
+                                            blocks.push([startIndex, ctt, detect]);
+                                        }
                                         reg.lastIndex += ctt.length + 1 - 2;
                                         break;
                                     }
@@ -195,11 +268,17 @@ const FTM = {};
         }
         //给出需要绑定的变量
         function readBlock(str) {
-            return _readBlock(str).map(x => x[2]);
+            let newarr = [];
+            _readBlock(str).forEach(x => {
+                let el = x[2];
+                if (el instanceof Array) newarr = newarr.concat(el);
+                else newarr.push(el);
+            });
+            return newarr;
         }
         //实例化一个模板
         function overrideBlock(str) {
-            if (!binds.source) throw "Please connect to a Data object first";
+            if (!source) throw "Please connect to a Data object first";
             let offset = 0;
             let arr = _readBlock(str);
             for (let o of arr) {
@@ -209,12 +288,12 @@ const FTM = {};
                 type = type == -1 ? "string" : content.slice(2, type);
                 let repla = "<Err_Unknown_Type>";
                 if (type == "string") {
-                    repla = source.val[rawctt];
+                    repla = source[rawctt];
                     if (repla instanceof Node) return repla;
                     else repla = String(repla);
-                } else if (type == "js" || type == "lazy-js") {
+                } else if (type == "js" || type == "glb-js") {
                     try {
-                        repla = new Function("ftmData", "return (" + rawctt + ")")(source.val);
+                        repla = new Function("ftmData", "return (" + rawctt + ")")(source);
                         if (repla instanceof Node) return repla;
                         else repla = String(repla);
                     } catch (err) {
@@ -288,71 +367,7 @@ const FTM = {};
         }
         binds.render = renderAfterFinished;
     };
-    const DataSource = function (once) {
-        /*if (node.ftmComputed) { return; }
-        else {
-            //console.log(node.ftmAlive);
-        }*/
-        if (!new.target) return new DataSource(...arguments);
-        let data = this;
-        let watchPool = new Set();
-        let ftmData = {};
-        let ftmProxy;
-        data.watch = function (watcher) {
-            watchPool.add(watcher);
-            Object.keys(ftmData).forEach(x => watcher.render(x));
-        };
-        data.unwatch = function (watcher) {
-            watchPool.delete(watcher);
-        };
-        //设置ftmProxy选项
-        let haveSettedData = false;
-        //console.log(target.ftmData);
-        Object.defineProperty(data, "val", {
-            get: function () {
-                return ftmProxy;
-            },
-            set: function (v) {
-                //劫持get和set
-                if (once && haveSettedData) return;
-                haveSettedData = true;
-                ftmData = Object.assign({}, v);
-                Object.keys(v).forEach(prop => {
-                    if (!once) {
-                        Object.defineProperty(v, prop, {
-                            get: function () {
-                                return ftmData[prop];
-                            },
-                            set: function (v) {
-                                ftmData[prop] = v;
-                                renderAfterFinished(prop);
-                            }
-                        });
-                    }
-                    watchPool.forEach(x => {
-                        x.render(prop);
-                    });
-                });
-                if (once) {
-                    Object.freeze(v);//禁止修改
-                }
-                ftmProxy = v;
-                /*ftmData = {};
-                ftmProxy = new Proxy(ftmData, {
-                    set: function (target, prop, value) {
-                        target[prop] = value;
-                        setNode(prop);
-                    }
-                });
-                for (let i in v) {
-                    ftmProxy[i] = v[i];
-                }*/
-            }
-        });
-    };
-    FTM.DataSource = DataSource;
     function DOMchange(target, parentBinds, isAdd = true) {
-
         if (target.nodeName.toLowerCase() == "template" && target.hasAttribute("ftm-el")) {
             //录入模板
             let temname = target.getAttribute("ftm-el");
@@ -368,6 +383,7 @@ const FTM = {};
         } else if (isAdd) {
             if (target.ftmComputed) return;
             target.ftmComputed = true;
+            let isSource = target.nodeName == "FTM-SRC" || (target.nodeType == 1 && target.hasAttribute("ftm-source"));
             let { ele: tem, once, inHTML } = templates[target.nodeName.toLowerCase()] || {};
             function getLoader() {
                 let n = target.parentElement;
@@ -376,7 +392,7 @@ const FTM = {};
                 }
                 return n;
             }
-            if (!tem) {
+            if (!tem && !isSource) {
                 if (!parentBinds) {
                     let n = getLoader();
                     if (n) parentBinds = n.ftmBinds;
@@ -411,6 +427,7 @@ const FTM = {};
                         s = match;
                         return "";
                     });
+                    if (!x) continue;
                     if (s == keyIndent) {
                         function getFtmData(s) {
                             let data = s == "^" ? getLoader() : (() => {
@@ -420,7 +437,7 @@ const FTM = {};
                                     console.warn("Invalid selector " + s);
                                     return null;
                                 }
-                            });
+                            })();
                             if (data && !data.ftmData) {
                                 console.warn("The element attach to must has ftmData");
                                 console.warn(data);
@@ -442,7 +459,7 @@ const FTM = {};
                             //复制一份
                             let data = getFtmData(x.match(isCopy)[0].slice(2, -1));
                             if (data) {
-                                Object.assign(obj, data.val);
+                                Object.assign(obj, data);
                             }
                             continue;
                         }
@@ -475,19 +492,21 @@ const FTM = {};
                 }
                 return obj;
             })();
-
             //配置
-            let ftmData = new DataSource(once);
-            ftmData.val = _ftmData;
-            target.ftmData = ftmData;
-            let binds = new Binds(target);
-            target.ftmBinds = binds;
-            binds.source = _source || ftmData;
+            let ftmData = new DataSource(target, once);
+            target.ftmData = _ftmData;
+            if (!isSource) {
+                let binds = new Binds(target);
+                target.ftmBinds = binds;
+                binds.source = _source || ftmData;
+            }
 
             //导入模板
             target.innerHTML = "";
-            let ctt = document.importNode(tem.content, true);
-            target.appendChild(ctt);
+            if (!isSource) {
+                let ctt = document.importNode(tem.content, true);
+                target.appendChild(ctt);
+            }
 
             //读取模板
             //匹配%{var}

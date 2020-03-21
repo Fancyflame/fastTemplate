@@ -250,14 +250,20 @@
                     </tr>
                     <tr>
                         <td><code>%{js:sta}</code></td>
-                        <td>使用js计算并返回这个值，要求<strong>表达式sta是一个值，并传入<code>ftmData</code>参数</strong>。
-                            例如 %{js:100>50?100:50} 是正确的而 %{js:if(100>50)return 100} 是错误的。<strong>它受所有绑定的变量影响。</strong>这
-                            可能对性能要求较高。</td>
+                        <td>
+                            使用js计算并返回这个值，要求<strong>表达式sta是一个值，并传入<code>ftmData</code>参数</strong>。
+                            例如 %{js:100>50?100:50} 是正确的而 %{js:if(100>50)return 100} 是错误的。
+                            <strong>请通过ftmData.property使用ftmData的属性</strong>，如果使用ftmData["property"]使用
+                            则%{js:}不会受这个属性的影响变化。
+                        </td>
                     </tr>
                     <tr>
-                        <td><code>%{lazy-js:sta}</code></td>
-                        <td>与js类似。只不过它是被动的，不因任何变量的响应而变化，除非是在同一环境下的其它表达式变化
-                            才会一起重新计算。能够缓解性能占用。</td>
+                        <td><code>%{glb-js:sta}</code></td>
+                        <td>与js类似。不过它是全局的，受任何变量的响应而变化，请注意性能占用。</td>
+                    </tr>
+                    <tr>
+                        <td><code><del>%{lazy-js:sta}</del></code></td>
+                        <td><strong>新版已不再支持</strong>。它旧时会被动加载，已被自动计算需求的<code>%{js:sta}</code>替代。</td>
                     </tr>
                     <tr>
                         <td><code>%{html:ele}</code></td>
@@ -282,14 +288,14 @@
                             <template ftm-el="fast-tem">
                                 <div ftm:style="color:%{font_color};">
                                     这里文本颜色代码是%{font_color}而如果将它转换成十进制的话则是
-                                    %{lazy-js:parseInt(ftmData.font_color.slice(1),16)}
+                                    %{js:parseInt(ftmData.font_color.slice(1),16)}
                                 </div>
 
                                 <div ftm-use-html="%{html:fill}">
                                     如果fill是个节点的话，这段话就会被替换成fill。
                                 </div>
 
-                                <div ftm-use-html="%{js:ftmData.fill}">
+                                <div ftm-use-html="%{glb-js:ftmData.fill}">
                                     这个也是
                                 </div>
                             </template>
