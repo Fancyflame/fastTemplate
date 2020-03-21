@@ -80,21 +80,21 @@
                 Object.keys(ftmData).forEach(x => delete data[x]);
                 ftmData = Object.assign({}, v);
                 Object.keys(v).forEach(prop => {
+                    let options = {
+                        get: function () {
+                            return ftmData[prop];
+                        },
+                        set: function (v) {
+                            ftmData[prop] = v;
+                            watchPool.forEach(x => {
+                                x.render(prop);
+                            });
+                        }
+                    };
                     if (!once) {
-                        let options = {
-                            get: function () {
-                                return ftmData[prop];
-                            },
-                            set: function (v) {
-                                ftmData[prop] = v;
-                                watchPool.forEach(x => {
-                                    x.render(prop);
-                                });
-                            }
-                        };
                         Object.defineProperty(v, prop, options);
-                        Object.defineProperty(data, prop, options);
                     }
+                    Object.defineProperty(data, prop, options);
                     watchPool.forEach(x => {
                         x.render(prop);
                     });
