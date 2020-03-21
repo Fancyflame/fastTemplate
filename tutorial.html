@@ -109,7 +109,19 @@
         <div class="bigcode">%{js:returnData(ftmData.ta.innerHTML)}</div>
     </template>
     <div>
-        <tut-part ftm-once="true">
+        <tut-part>
+            title:新版添加了什么
+            b_color:orangered
+            <div ftm-key="article">
+                <dl>
+                    <dt>共享变量：</dt>
+                    <dd>使用+{}和={}与其它ftmData关联和复制</dd>
+                    <dt>js模块：</dt>
+                    <dd>lazy-js不再支持，改进了js模块，添加了glb-js模块</dd>
+                </dl>
+            </div>
+        </tut-part>
+        <tut-part>
             title:简介 - 什么是FastTemplate
             b_color:violet
             <div ftm-key="article">
@@ -337,6 +349,7 @@
                 示例：
                 <big-code>
                     <pre ftm-key="ta">
+                        +{ftmDataSomewhere}
                         var_1:hello
                         var_2:this is:ftm
                         var_3:  this is a very very very
@@ -388,17 +401,46 @@
                         <template ftm-key="ta">
                             <fast-tem>
                                 <div ftm-key="element_1">
-                                    会把父元素当做变量保留
+                                    会把整个父元素当做变量保留
                                 </div>
                                 <div ftm-key="element_2" ftm-in-html>
-                                    只会取走这个文本节点
+                                    只会取走当前这个文本节点，父元素留在原位
                                 </div>
                             </fast-tem>
                         </template>
                     </big-code>
                     ftm使用的是<code>DocumentFragment</code>类作为多元素传输的“包装盒”，不会造成多次渲染。
                 </p>
+                <p>
+                    NO.3 与其它ftmData关联和复制<br>
+                    使用+{selector}来复制目标元素的ftmData，可多次复制覆盖。<br>
+                    selector是一个css选择器，通过document.querySelector使用。
+                    <big-code>
+                        <template ftm-key="ta">
+                            <fast-tem>
+                                +{#ftm1}
+                                +{#ftm2 &gt; div[name=data]}
+                                description:会覆盖上面的description属性
+                            </fast-tem>
+                        </template>
+                    </big-code>
+                    使用={selector}来直接绑定目标元素的ftmData，受目标ftmData的响应变化。
+                    <strong>只能写在第一行，且不可多次绑定</strong>。<br>
+                    剩下声明的变量仍然能够正常使用
+                    <big-code>
+                        <template ftm-key="ta">
+                            <fast-tem>
+                                ={body:firstChild}
+                                description:字段仍然会保留在元素中
+                            </fast-tem>
+                        </template>
+                    </big-code>
+                </p>
                 所有声明的变量都能在<code>element.ftmData</code>中被找到
+                <p>
+                    另外，您可以直接创建一个<code>&lt;ftm-src&gt;</code>元素或者创建一个带<code>ftm-source</code>
+                    的元素来作为一个带ftmData的非实例化模板的元素。它可以被={}和+{}检测到
+                </p>
             </div>
         </tut-part>
         <tut-part>
@@ -489,16 +531,20 @@
 
                     全部的名词：
                     <ol>
+                        <li><code>&lt;ftm-src&gt;</code></li>
                         <li><code>ftm-el</code></li>
                         <li><code>ftm-in-html</code></li>
                         <li><code>ftm-once</code></li>
                         <li><code>ftm-use-html</code></li>
                         <li><code>ftm-key</code></li>
+                        <li><code>ftm-source</code></li>
                         <li><code>ftm:...="..."</code></li>
                         <li><code>%{...}</code></li>
                         <li><code>%{js:...}</code></li>
                         <li><code>%{lazy-js:...}</code></li>
                         <li><code>%{html:...}</code></li>
+                        <li><code>+{...}</code></li>
+                        <li><code>={...}</code></li>
                     </ol>
                 </p>
             </div>

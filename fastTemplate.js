@@ -431,7 +431,7 @@
                         function getFtmData(s) {
                             let data = s == "^" ? getLoader() : (() => {
                                 try {
-                                    return document.querySelector(s);
+                                    return document.querySelector(s.replace(/&gt;/g, ">"));
                                 } catch (err) {
                                     console.warn("Invalid selector " + s);
                                     return null;
