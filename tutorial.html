@@ -448,7 +448,7 @@
             b_color:orange
             <div ftm-key="article">
                 这个其实也没啥好说的，你可以直接设置一个由模板实例化后的元素的<code>ftmData</code>属性
-                直接赋值和间接改值都是可以的
+                直接赋值和间接改值都是可以的，但是注意<strong>一定要绑定到DOM后才会被FTM读取</strong>！
                 <big-code>
                     <pre ftm-key="ta">
                         let f=document.getElementsByTagName("fast-tem")[0];
