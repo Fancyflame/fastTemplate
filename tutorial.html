@@ -447,7 +447,7 @@
             title:关于JavaScript
             b_color:orange
             <div ftm-key="article">
-                这个其实也没啥好说的，你可以直接设置一个由模板实例化后的元素的<code>ftmData</code>属性
+                你可以直接设置一个由模板实例化后的元素的<code>ftmData</code>属性
                 直接赋值和间接改值都是可以的，但是注意<strong>一定要绑定到DOM后才会被FTM读取</strong>！
                 <big-code>
                     <pre ftm-key="ta">
@@ -464,6 +464,31 @@
                     </pre>
                 </big-code>
                 都是响应式的。
+                <p>
+                    关于共享变量，了解一下这些类：<br>
+                    <dl>
+                        <dt>DataSource</dt>
+                        <dd>
+                            作用：提供一个数据源供实例化的模板使用<br>
+                            获取：不能由用户实例化，只能从<code>element.ftmData</code>中获取<br>
+                            API：没有供用户使用的API，用户仅需当作储存变量的库即可，可以设置变量到一个DataSource类上。
+                        </dd>
+                        <dt>Binds</dt>
+                        <dd>
+                            作用：描述一个实例化模板中需要响应的元素，换句话说，有了Binds，ftm才能知道哪些元素需要连接到数据源并提供渲染<br>
+                            获取：不能由用户实例化，只能从<code>element.ftmBinds</code>中获取，<code>&lt;ftm-src&gt;</code>没有ftmBinds属性。<br>
+                            API：<dl>
+                                <dt>
+                                    source属性
+                                </dt>
+                                <dd>
+                                    是一个<code>DataSource</code>对象。可以被直接赋值和取值，用于连接到数据源接收响应。<br>
+                                    例如您可以<code>ele1.ftmBinds.source=ele2.ftmData</code>
+                                </dd>
+                            </dl>
+                        </dd>
+                    </dl>
+                </p>
             </div>
         </tut-part>
         <tut-part>
