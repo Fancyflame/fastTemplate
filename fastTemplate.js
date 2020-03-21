@@ -85,15 +85,14 @@
                             return ftmData[prop];
                         },
                         set: function (v) {
+                            if (once) return;
                             ftmData[prop] = v;
                             watchPool.forEach(x => {
                                 x.render(prop);
                             });
                         }
                     };
-                    if (!once) {
-                        Object.defineProperty(v, prop, options);
-                    }
+                    Object.defineProperty(v, prop, options);
                     Object.defineProperty(data, prop, options);
                     watchPool.forEach(x => {
                         x.render(prop);
