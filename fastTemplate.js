@@ -1,51 +1,6 @@
 /*
+    FastTemplate
     Author:FancyFlame
-
-    用法：
-    <template id="sample" ftm-el="show-img">
-        <img src="http://abc.example.com/%{path}?type=nature"></img>
-        图片名称：%{name}
-        描述：%{desc}
-        这是第%{js:ftmData.num<0?1:ftmData.num}张图片
-    </template>
-    <show-img>
-        path:flowers.jpg
-        name:花朵
-        desc:许多许多的花
-            绽放在山坡上
-            真好看
-        num:-2
-    </show-img>
-
-    也可以：
-    let im=document.createElement("show-img");
-    im.ftmData={
-        path:"flowers.jpg",
-        name:"花朵",
-        desc:"许多许多的花朵绽放在山坡上",
-        num:-2
-    };
-    document.body.appendChild(im);
-
-    变为：
-    show-img element:
-    {
-        ftmData:{
-            "path":"flowers.jpg",
-            "name":"花朵",
-            "desc":"许多许多的花朵绽放在山坡上"
-        },
-        childNodes:[
-            [object HTMLImageElement],
-            [object #Text],
-            ...
-        ]
-    }
-
-    *变量名只允许包含数字、字母、$和_
-    *如果文档在放入页面document后就不允许直接修改innerText了，否则实时响应会不起作用
-    *ftmData可以被直接被赋值，但是不推荐这样做（除非还没绑定到document，不然可能有未知的bug），建议仅修改和获取
-    *元素会根据文档顺序读取，请确保template元素在模板元素前面，或者在页面加载完后动态生成也是可以的
 */
 {
     const templates = {};
@@ -411,13 +366,44 @@
                 else console.log(target.tagName);*/
                 if (target.ftmData) return target.ftmData;
                 let obj = {};
+                function getFtmData(s) {
+                    let data = s == "^" ? getLoader() : (() => {
+                        try {
+                            return document.querySelector(s.replace(/&gt;/g, ">"));
+                        } catch (err) {
+                            console.warn("Invalid selector " + s);
+                            return null;
+                        }
+                    })();
+                    if (data && !data.ftmData) {
+                        console.warn("The element attach to must has ftmData");
+                        console.warn(data);
+                        return null;
+                    }
+                    return data && data.ftmData;
+                }
+                {//与其它数据源的绑定和继承关系
+                    let cp = target.getAttribute("ftm-cpdata");
+                    if (cp) {
+                        let arr = cp.split(",");
+                        arr.forEach(x => {
+                            let d = getFtmData(x);
+                            if (d) Object.assign(obj, d);
+                        });
+                    }
+                    let use = target.getAttribute("ftm-bddata");
+                    if (use) {
+                        let data = getFtmData(use);
+                        if (data) _source = data;
+                    }
+                }
+
                 if (target.childNodes.length < 1) return obj;
                 let str = target.querySelector("pre[ftm-data]");
                 str = str ? str.innerHTML : target.firstChild.nodeValue;//第一个节点应该是文本节点
                 str = str.replace(/^\s*\n|\n\s*$/g, "");//去掉头尾无用空白符，保留缩进
                 str = str.split("\n");
                 let keyIndent = str[0].match(/^\s*/)[0];
-                let match = /(^\s*)(.*)/mg;
                 let lastkey;
                 for (let i in str) {
                     let x = str[i];
@@ -428,31 +414,6 @@
                     });
                     if (!x) continue;
                     if (s == keyIndent) {
-                        function getFtmData(s) {
-                            let data = s == "^" ? getLoader() : (() => {
-                                try {
-                                    return document.querySelector(s.replace(/&gt;/g, ">"));
-                                } catch (err) {
-                                    console.warn("Invalid selector " + s);
-                                    return null;
-                                }
-                            })();
-                            if (data && !data.ftmData) {
-                                console.warn("The element attach to must has ftmData");
-                                console.warn(data);
-                                return null;
-                            }
-                            return data && data.ftmData;
-                        }
-                        if (i == "0") {
-                            let isAttach = /^\=\{[^\}]+\}$/m;
-                            if (isAttach.test(x)) {
-                                //直接绑定
-                                let data = getFtmData(x.match(isAttach)[0].slice(2, -1));
-                                if (data) _source = data;
-                                continue;
-                            }
-                        }
                         let isCopy = /^\+\{[^\}]+\}$/;
                         if (isCopy.test(x)) {
                             //复制一份

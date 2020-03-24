@@ -115,9 +115,7 @@
             <div ftm-key="article">
                 <dl>
                     <dt>共享变量：</dt>
-                    <dd>使用+{}和={}与其它ftmData关联和复制</dd>
-                    <dt>js模块：</dt>
-                    <dd>lazy-js不再支持，改进了js模块，添加了glb-js模块</dd>
+                    <dd>使用ftm-bddata和ftm-cpdata与其它ftmData关联和复制，取消了={}语法但+{}仍可以使用</dd>
                 </dl>
             </div>
         </tut-part>
@@ -413,7 +411,7 @@
                 </p>
                 <p>
                     NO.3 与其它ftmData关联和复制<br>
-                    使用+{selector}来复制目标元素的ftmData，可多次复制覆盖。<br>
+                    使用+{selector}或者ftm-cpdata属性以逗号分割来复制目标元素的ftmData，可多次复制覆盖。<br>
                     selector是一个css选择器，通过document.querySelector使用。
                     <big-code>
                         <template ftm-key="ta">
@@ -422,16 +420,19 @@
                                 +{#ftm2 &gt; div[name=data]}
                                 description:会覆盖上面的description属性
                             </fast-tem>
+                            <!--等同于-->
+                            <fast-tem ftm-cpdata="#ftm1,#ftm2>div[name=data]">
+                                description:还是会覆盖上面的description属性
+                            </fast-tem>
                         </template>
                     </big-code>
-                    使用={selector}来直接绑定目标元素的ftmData，受目标ftmData的响应变化。
+                    使用ftm-bddata来直接绑定目标元素的ftmData，受目标ftmData的响应变化。
                     <strong>只能写在第一行，且不可多次绑定</strong>。<br>
                     剩下声明的变量仍然能够正常使用
                     <big-code>
                         <template ftm-key="ta">
-                            <fast-tem>
-                                ={body:firstChild}
-                                description:字段仍然会保留在元素中
+                            <fast-tem ftm-bddata="div:firstChild">
+                                description:此属性能在这个元素的ftmData属性中找到，但是暂时没有元素绑定它
                             </fast-tem>
                         </template>
                     </big-code>
@@ -563,13 +564,14 @@
                         <li><code>ftm-use-html</code></li>
                         <li><code>ftm-key</code></li>
                         <li><code>ftm-source</code></li>
+                        <li><code>ftm-cpdata</code></li>
+                        <li><code>ftm-bddata</code></li>
                         <li><code>ftm:...="..."</code></li>
                         <li><code>%{...}</code></li>
                         <li><code>%{js:...}</code></li>
                         <li><code>%{glb-js:...}</code></li>
                         <li><code>%{html:...}</code></li>
                         <li><code>+{...}</code></li>
-                        <li><code>={...}</code></li>
                     </ol>
                 </p>
             </div>
