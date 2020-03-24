@@ -45,20 +45,21 @@
             return document.createElement(name);
         }
     </script>
-    <template ftm-el="f-two">
-        <div class="ddd">%{js:ftmData.word*20}</div>
+    <template ftm-el="f-two" ftm-args="a b c">
+        <div class="ddd">(%{a}+%{b})*%{c}=%{js:(Number(data.a)+Number(data.b))*data.c}</div>
     </template>
     <template ftm-el="f-one">
         <div class="ddd" ftm-use-html="%{content}"></div>
     </template>
     <ftm-src id="sources">
-        word:100
-        dw:333
+        a:1
+        b:3
     </ftm-src>
     <div id="aaa">
         <p>
             <f-one>
-                <f-two ftm-key="content" ftm-bddata="#sources">
+                <f-two ftm-key="content" fftm-bddata="#sources">
+                    125 97 9
                 </f-two>
             </f-one>
         </p>

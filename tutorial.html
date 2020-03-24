@@ -106,17 +106,18 @@
         </div>
     </template>
     <template ftm-el="big-code" ftm-once="true">
-        <div class="bigcode">%{js:returnData(ftmData.ta.innerHTML)}</div>
+        <div class="bigcode">%{js:returnData(data.ta.innerHTML)}</div>
     </template>
     <div>
         <tut-part>
             title:新版添加了什么
             b_color:orangered
             <div ftm-key="article">
-                <dl>
+                懒得写反正没人看
+                <!--dl>
                     <dt>共享变量：</dt>
                     <dd>使用ftm-bddata和ftm-cpdata与其它ftmData关联和复制，取消了={}语法但+{}仍可以使用</dd>
-                </dl>
+                </dl-->
             </div>
         </tut-part>
         <tut-part>
@@ -151,7 +152,7 @@
                             <my-card>
                                 title:新年快乐
                                 author:张三
-                                <div ftm-in-html ftm-key="article">
+                                <div ftm-key="article">
                                     <img ftm:src="/happyNewYear.jpg">
                                     新年了，你什么时候回来呢
                                 </div>
@@ -159,7 +160,7 @@
                             <my-card>
                                 title:圣诞快乐
                                 author:李四
-                                <div ftm-in-html ftm-key="article">
+                                <div ftm-key="article">
                                     圣诞节到了，这里都在下雪呢：<br>
                                     <img ftm:src="/christmas.jpg">
                                     一起来过圣诞节吗？
@@ -218,6 +219,8 @@
                     </template>
                 </big-code>
                 这样就声明了一个蓝色背景白色字的模板，当然，您可以声明更复杂的模板。<br>
+                <strong>请注意，除了ftm-el和ftm-src以外的以ftm-开头的属性全部会跟随模板复制而继承，除非被覆盖。</strong>
+                例如一个携带了ftm-once=true的模板，若复制产生的元素没有声明ftm-once，它就默认使用true而不是false了<br>
                 这个template元素可以拥有以下几个属性：
                 <table>
                     <tr>
@@ -234,7 +237,7 @@
                     </tr>
                     <tr>
                         <td><code>ftm-in-html</code></td>
-                        <td>设置默认ftm-in-html属性。默认false</td>
+                        <td>使全部带ftm-key的变量节点都仅使用内部的节点。默认false</td>
                     </tr>
                 </table>
                 您一定注意到了这个<code>%{words}</code>了吧！请看下面的章节。
@@ -260,9 +263,9 @@
                     <tr>
                         <td><code>%{js:sta}</code></td>
                         <td>
-                            使用js计算并返回这个值，要求<strong>表达式sta是一个值，并传入<code>ftmData</code>参数</strong>。
+                            使用js计算并返回这个值，要求<strong>表达式sta是一个值，并传入<code>data</code>参数</strong>，等价于ftmData。
                             例如 %{js:100>50?100:50} 是正确的而 %{js:if(100>50)return 100} 是错误的。
-                            <strong>请通过ftmData.property使用ftmData的属性</strong>，如果使用ftmData["property"]使用
+                            <strong>请通过data.property使用ftmData的属性</strong>，如果使用data["property"]使用
                             则%{js:}不会受这个属性的影响变化。
                         </td>
                     </tr>
@@ -437,9 +440,26 @@
                         </template>
                     </big-code>
                 </p>
+                <p>
+                    NO.4 使用ftm-args快捷声明大量模板的变量<br>
+                    这是一个很重要的语法，至于为什么放在后面纯粹是因为它是后加入的。<br>
+                    <big-code>
+                        <template ftm-key="ta">
+                            <template ftm-el="f-calc">
+                                %{a}+%{b}+%{c}=%{js:Number(data.a)+Number(data.b)+Number(data.c)}
+                            </template>
+                            <f-calc ftm-args="a b c">
+                                100 20    5
+                            </f-calc>
+                        </template>
+                    </big-code>
+                    不用说您也猜到了，输出结果正是“100+20+5=125”<br>
+                    注意声明的变量，它们由若干个空格分割。<strong>如果值中包含空格则需要用\s来转义</strong>。当然了，每个项都会经过json格式化后使用，
+                    所以您也就可以使用\n，\u等写法。如果包含大量字符串，那还是选择标准键值语法吧！
+                </p>
                 所有声明的变量都能在<code>element.ftmData</code>中被找到
                 <p>
-                    另外，您可以直接创建一个<code>&lt;ftm-src&gt;</code>元素或者创建一个带<code>ftm-source</code>
+                    另外，您可以直接创建一个<code>&lt;ftm-src&gt;</code>元素或者创建一个带<code>ftm-src</code>
                     的元素来作为一个带ftmData的非实例化模板的元素。它可以被={}和+{}检测到
                 </p>
             </div>
@@ -559,11 +579,12 @@
                     <ol>
                         <li><code>&lt;ftm-src&gt;</code></li>
                         <li><code>ftm-el</code></li>
+                        <li><code>ftm-args</code></li>
                         <li><code>ftm-in-html</code></li>
                         <li><code>ftm-once</code></li>
                         <li><code>ftm-use-html</code></li>
                         <li><code>ftm-key</code></li>
-                        <li><code>ftm-source</code></li>
+                        <li><code>ftm-src</code></li>
                         <li><code>ftm-cpdata</code></li>
                         <li><code>ftm-bddata</code></li>
                         <li><code>ftm:...="..."</code></li>

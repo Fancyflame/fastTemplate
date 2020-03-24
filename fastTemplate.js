@@ -188,7 +188,7 @@
                                         if (type == "glb-js:") blocks.push([startIndex, ctt, "##javascript"]);
                                         else {
                                             let raw = ctt.slice(ctt.indexOf(":") + 1, -1);
-                                            let detect = raw.match(/(?<=(?<![\w\$])ftmData\.)([\w\$]+)/g);
+                                            let detect = raw.match(/(?<=(?<![\w\$])data\.)([\w\$]+)/g);
                                             blocks.push([startIndex, ctt, detect]);
                                         }
                                         reg.lastIndex += ctt.length + 1 - 2;
@@ -247,7 +247,7 @@
                     else repla = String(repla);
                 } else if (type == "js" || type == "glb-js") {
                     try {
-                        repla = new Function("ftmData", "return (" + rawctt + ")")(source);
+                        repla = new Function("data", "return (" + rawctt + ")").call(node, source);
                         if (repla instanceof Node) return repla;
                         else repla = String(repla);
                     } catch (err) {
@@ -326,19 +326,15 @@
             //录入模板
             let temname = target.getAttribute("ftm-el");
             if (isAdd) {
-                templates[temname] = {
-                    ele: target,
-                    once: target.getAttribute("ftm-once") == "true",
-                    inHTML: target.hasAttribute("ftm-in-html")
-                };
+                templates[temname] = target;
             } else {
                 delete templates[temname];
             }
         } else if (isAdd) {
             if (target.ftmComputed) return;
             target.ftmComputed = true;
-            let isSource = target.nodeName == "FTM-SRC" || (target.nodeType == 1 && target.hasAttribute("ftm-source"));
-            let { ele: tem, once, inHTML } = templates[target.nodeName.toLowerCase()] || {};
+            let isSource = target.nodeName == "FTM-SRC" || (target.nodeType == 1 && target.hasAttribute("ftm-src"));
+            let tem = templates[target.nodeName.toLowerCase()];
             function getLoader() {
                 let n = target.parentElement;
                 while (n && !n.ftmData) {
@@ -355,11 +351,18 @@
                 parentBinds.watch(target);
                 return;
             }
-            {
-                let _once = target.getAttribute("ftm-once");
-                if (_once) once = _once == "true";
-            }
-
+            if (!isSource)
+                for (let attr of tem.attributes) {
+                    let { name: i, value: o } = attr;
+                    let isftm = /^ftm\-/;
+                    //如果属性是以ftm-开头并且不是ftm-el也不是ftm-src并且当前元素没有声明这个属性
+                    if (isftm.test(i) && i != "ftm-el" && i != "ftm-src" && !target.hasAttribute(i)) {
+                        target.setAttribute(i, o);
+                        console.log(i);
+                    } else console.log(i);
+                }
+            let once = target.getAttribute("ftm-once");
+            once = once == "true" || once == "";
             let _source;//要连接到的其它ftmData
             let _ftmData = (function () {
                 /*if (target.tagName == "BIG-CODE") debugger;
@@ -398,46 +401,66 @@
                     }
                 }
 
+                let args = target.getAttribute("ftm-args");
+                if (args !== null) debugger;
                 if (target.childNodes.length < 1) return obj;
                 let str = target.querySelector("pre[ftm-data]");
                 str = str ? str.innerHTML : target.firstChild.nodeValue;//第一个节点应该是文本节点
-                str = str.replace(/^\s*\n|\n\s*$/g, "");//去掉头尾无用空白符，保留缩进
-                str = str.split("\n");
-                let keyIndent = str[0].match(/^\s*/)[0];
-                let lastkey;
-                for (let i in str) {
-                    let x = str[i];
-                    let s;
-                    x = x.replace(/^\s*/, function (match) {
-                        s = match;
-                        return "";
-                    });
-                    if (!x) continue;
-                    if (s == keyIndent) {
-                        let isCopy = /^\+\{[^\}]+\}$/;
-                        if (isCopy.test(x)) {
-                            //复制一份
-                            let data = getFtmData(x.match(isCopy)[0].slice(2, -1));
-                            if (data) {
-                                Object.assign(obj, data);
-                            }
-                            continue;
+                if (args) {
+                    //识别快捷参数
+                    let r = args.split(/ +/);
+                    str = str.trim().split(/ +/);
+                    r.forEach((k, i) => {
+                        if (!k) return; //可能是遇到了连续空格
+                        if (str[i]) {
+                            let v = str[i].replace(/\\s/g, " "); //将所有的\s替换成空格
+                            try {
+                                obj[k] = JSON.parse('"' + v + '"');
+                            } catch (err) { }
                         }
-                        //匹配开端
-                        let foo = x.split(":");
-                        //缩进是关键字缩进
-                        lastkey = foo[0];
-                        obj[lastkey] = foo.slice(1).join("");
-                    } else {
-                        obj[lastkey] += "\n" + (s > keyIndent ? s.slice(keyIndent.length) : "") + x;
+                    });
+                } else {
+                    //识别标准键值对
+                    str = str.replace(/^\s*\n|\n\s*$/g, "");//去掉头尾无用空白符，保留缩进
+                    str = str.split("\n");
+                    let keyIndent = str[0].match(/^\s*/)[0];
+                    let lastkey;
+                    for (let i in str) {
+                        let x = str[i];
+                        let s;
+                        x = x.replace(/^\s*/, function (match) {
+                            s = match;
+                            return "";
+                        });
+                        if (!x) continue;
+                        if (s == keyIndent) {
+                            let isCopy = /^\+\{[^\}]+\}$/;
+                            if (isCopy.test(x)) {
+                                //复制一份
+                                let data = getFtmData(x.match(isCopy)[0].slice(2, -1));
+                                if (data) {
+                                    Object.assign(obj, data);
+                                }
+                                continue;
+                            }
+                            //匹配开端
+                            let foo = x.split(":");
+                            //缩进是关键字缩进
+                            lastkey = foo[0];
+                            obj[lastkey] = foo.slice(1).join("");
+                        } else {
+                            obj[lastkey] += "\n" + (s > keyIndent ? s.slice(keyIndent.length) : "") + x;
+                        }
                     }
                 }
+
                 //获取子html元素设定为参数
                 for (let x of target.children) {
                     let key = x.getAttribute("ftm-key");
                     if (key === null) continue;
                     //这个是表示只取子元素
-                    if (x.hasAttribute("ftm-in-html") ? x.getAttribute("ftm-in-html") != "false" : inHTML) {
+                    let inHTML = (x.hasAttribute("ftm-in-html") ? x.getAttribute("ftm-in-html") : target.getAttribute("ftm-in-html"));
+                    if (inHTML == "true" || inHTML == "") {
                         if (x.tagName == "TEMPLATE") {
                             x = x.content.cloneNode(true);
                         } else {
