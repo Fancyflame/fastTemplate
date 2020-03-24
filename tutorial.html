@@ -105,7 +105,7 @@
             <p ftm-use-html="%{article}" ftm-once="true" class="article"></p>
         </div>
     </template>
-    <template ftm-el="big-code" ftm-once="true">
+    <template ftm-el="big-code" ftm-once="true" ftm-args="ta">
         <div class="bigcode">%{js:returnData(data.ta.innerHTML)}</div>
     </template>
     <div>
@@ -139,8 +139,8 @@
                 <p>
                     使用FastTemplate：
                     <big-code>
-                        <template ftm-key="ta">
-                            <template ftm-el="my-card">
+                        <template>
+                            <template ftm-el="my-card" ftm-args="title author article">
                                 <div>
                                     <h1>%{title}</h1>
                                     <p ftm-use-html="article" class="paragraph"></p>
@@ -150,14 +150,13 @@
                             </template>
                             <!--实例化-->
                             <my-card>
-                                title:新年快乐
-                                author:张三
-                                <div ftm-key="article">
+                                新年快乐 张三
+                                <div>
                                     <img ftm:src="/happyNewYear.jpg">
                                     新年了，你什么时候回来呢
                                 </div>
                             </my-card>
-                            <my-card>
+                            <my-card ftm-args>
                                 title:圣诞快乐
                                 author:李四
                                 <div ftm-key="article">
@@ -172,7 +171,7 @@
                 <p>
                     不使用FastTemplate：
                     <big-code>
-                        <template ftm-key="ta">
+                        <template>
                             <div>
                                 <h1>新年快乐</h1>
                                 <p class="paragraph">
@@ -212,7 +211,7 @@
                 首先，需要注意的是这个模板一定是<code>&lt;template&gt;</code>元素，且带有<code>ftm-el</code>
                 属性，它对应着目标元素的元素名（<code>tagName</code>）。请看下面一个示例。
                 <big-code>
-                    <template ftm-key="ta">
+                    <template>
                         <template ftm-el="fast-tem">
                             <div style="background: blue;color:white;">%{words}</div>
                         </template>
@@ -296,7 +295,7 @@
                 <p>
                     一个例子
                     <big-code>
-                        <template ftm-key="ta">
+                        <template>
                             <template ftm-el="fast-tem">
                                 <div ftm:style="color:%{font_color};">
                                     这里文本颜色代码是%{font_color}而如果将它转换成十进制的话则是
@@ -323,7 +322,7 @@
             <div ftm-key="article">
                 实例化？
                 <big-code>
-                    <template ftm-key="ta">
+                    <template>
                         <template ftm-el="fast-tem">这是声明过的模板</template>
                         <!--实例化-->
                         <fast-tem></fast-tem>
@@ -331,7 +330,7 @@
                 </big-code>
                 同时您也可以使用JavaScript实例化
                 <big-code>
-                    <template ftm-key="ta">
+                    <template>
                         let div=document.createElement("fast-tem");
                         document.body.appendChild(div);
                     </template>
@@ -349,7 +348,7 @@
                 先记住这段格式
                 示例：
                 <big-code>
-                    <pre ftm-key="ta">
+                    <pre>
                         +{ftmDataSomewhere}
                         var_1:hello
                         var_2:this is:ftm
@@ -361,7 +360,7 @@
                 由此可见，声明短数据就直接 变量名:值 即可。若需要长数据，需要注意接下去的一段前面的空白字符数量要与
                 声明字段的缩进不一样（从Python语法启发）。<br><br>如果说
                 <big-code>
-                    <pre ftm-key="ta">
+                    <pre>
                         var_3: this is a very very very
                         long article,with many many
                           lines.but can it still works normally?
@@ -373,7 +372,7 @@
                     <br>
                     可以放在<strong>第一个</strong>文本节点。
                     <big-code>
-                        <template ftm-key="ta">
+                        <template>
                             <fast-tem>
                                 foo:bar
                                 hello:world
@@ -383,7 +382,7 @@
                     但是如果要多行值，可以放在<strong>第一个</strong>带有<code>ftm-data</code>属性的<code>&lt;pre&gt;</code>元素里
                     这种pre元素被优先作为配置。
                     <big-code>
-                        <template ftm-key="ta">
+                        <template>
                             <fast-tem>
                                 这个文本节点会被跳过
                                 <pre ftm-data>
@@ -399,7 +398,7 @@
                     NO.2 使用<code>ftm-key</code>属性直接声明元素变量。
                     使用<code>ftm-in-html</code>属性可以只调用其所有子元素。
                     <big-code>
-                        <template ftm-key="ta">
+                        <template>
                             <fast-tem>
                                 <div ftm-key="element_1">
                                     会把整个父元素当做变量保留
@@ -414,10 +413,10 @@
                 </p>
                 <p>
                     NO.3 与其它ftmData关联和复制<br>
-                    使用+{selector}或者ftm-cpdata属性以逗号分割来复制目标元素的ftmData，可多次复制覆盖。<br>
+                    使用+{selector}或者ftm-cpdata（由copyData缩写得到）属性以逗号分割来复制目标元素的ftmData，可多次复制覆盖。<br>
                     selector是一个css选择器，通过document.querySelector使用。
                     <big-code>
-                        <template ftm-key="ta">
+                        <template>
                             <fast-tem>
                                 +{#ftm1}
                                 +{#ftm2 &gt; div[name=data]}
@@ -429,13 +428,12 @@
                             </fast-tem>
                         </template>
                     </big-code>
-                    使用ftm-bddata来直接绑定目标元素的ftmData，受目标ftmData的响应变化。
-                    <strong>只能写在第一行，且不可多次绑定</strong>。<br>
-                    剩下声明的变量仍然能够正常使用
+                    使用ftm-bddata（从bindData缩写得到）来直接绑定目标元素的ftmData，受目标ftmData的响应变化。可绑定多个元素<br>
+                    剩下声明的变量声明到本元素的ftmData中
                     <big-code>
-                        <template ftm-key="ta">
+                        <template>
                             <fast-tem ftm-bddata="div:firstChild">
-                                description:此属性能在这个元素的ftmData属性中找到，但是暂时没有元素绑定它
+                                description:此属性能在这个元素的ftmData属性中找到
                             </fast-tem>
                         </template>
                     </big-code>
@@ -444,23 +442,26 @@
                     NO.4 使用ftm-args快捷声明大量模板的变量<br>
                     这是一个很重要的语法，至于为什么放在后面纯粹是因为它是后加入的。<br>
                     <big-code>
-                        <template ftm-key="ta">
+                        <template>
                             <template ftm-el="f-calc">
                                 %{a}+%{b}+%{c}=%{js:Number(data.a)+Number(data.b)+Number(data.c)}
+                                <div ftm-use-html="%{html:hello}"></div>
                             </template>
-                            <f-calc ftm-args="a b c">
+                            <f-calc ftm-args="a b c hello">
                                 100 20    5
+                                <div>hello</div>
                             </f-calc>
                         </template>
                     </big-code>
-                    不用说您也猜到了，输出结果正是“100+20+5=125”<br>
+                    不用说您也猜到了，输出结果正是“100+20+5=125”，外加一个“hello”<br>
                     注意声明的变量，它们由若干个空格分割。<strong>如果值中包含空格则需要用\s来转义</strong>。当然了，每个项都会经过json格式化后使用，
-                    所以您也就可以使用\n，\u等写法。如果包含大量字符串，那还是选择标准键值语法吧！
+                    所以您也就可以使用\n，\u等写法。如果包含大量字符串，那还是选择标准键值语法吧。另外，如果数据中提供的个数不足，也会依次读取除包含数据
+                    的节点外的所有节点。
                 </p>
                 所有声明的变量都能在<code>element.ftmData</code>中被找到
                 <p>
                     另外，您可以直接创建一个<code>&lt;ftm-src&gt;</code>元素或者创建一个带<code>ftm-src</code>
-                    的元素来作为一个带ftmData的非实例化模板的元素。它可以被={}和+{}检测到
+                    的元素来作为一个带ftmData的非实例化模板的元素。它可以被ftm-cpdata、ftm-bddata或+{}检测到
                 </p>
             </div>
         </tut-part>
@@ -471,7 +472,7 @@
                 你可以直接设置一个由模板实例化后的元素的<code>ftmData</code>属性
                 直接赋值和间接改值都是可以的，但是注意<strong>一定要绑定到DOM后才会被FTM读取</strong>！
                 <big-code>
-                    <pre ftm-key="ta">
+                    <pre>
                         let f=document.getElementsByTagName("fast-tem")[0];
                         //或者let f=document.createElement("fast-tem");
                         let obj={
@@ -500,11 +501,18 @@
                             获取：不能由用户实例化，只能从<code>element.ftmBinds</code>中获取，<code>&lt;ftm-src&gt;</code>没有ftmBinds属性。<br>
                             API：<dl>
                                 <dt>
-                                    source属性
+                                    connectTo(dataSource)
                                 </dt>
                                 <dd>
-                                    是一个<code>DataSource</code>对象。可以被直接赋值和取值，用于连接到数据源接收响应。<br>
-                                    例如您可以<code>ele1.ftmBinds.source=ele2.ftmData</code>
+                                    用于连接到目标数据源，但是多次连接到同一个数据源除了重新渲染外不会有更多变化。所有数据源优先级相同，
+                                    如果有重复取最新的值。
+                                </dd>
+                                <dt>
+                                    disconnectFrom(dataSource)
+                                </dt>
+                                <dd>
+                                    用于从数据源断开，不再接收由数据源值修改引起的变化。尝试从一个没有连接过的或者
+                                    已断开的数据源断开不会有任何变化。
                                 </dd>
                             </dl>
                         </dd>
@@ -519,7 +527,7 @@
                 ftm声明可以是嵌套式的（简称套娃），这很好理解。
                 我们全局声明一个f-two。
                 <big-code>
-                    <div ftm-key="ta">
+                    <div>
                         <template ftm-el="f-two">
                             Hey there!
                         </template>
@@ -528,7 +536,7 @@
                 <p>
                     第一种：模板嵌套
                     <big-code>
-                        <template ftm-key="ta">
+                        <template>
                             <template ftm-el="f-one">
                                 <f-two></f-two>
                             </template>
@@ -539,7 +547,7 @@
                 <p>
                     第二种：实例嵌套
                     <big-code>
-                        <template ftm-key="ta">
+                        <template>
                             <template ftm-el="f-one">
                                 <div ftm-use-html="%{html}"></div>
                             </template>
@@ -552,7 +560,7 @@
                 <p>
                     <del>第三种：死机警告</del>
                     <big-code>
-                        <template ftm-key="ta">
+                        <template>
                             <template ftm-el="f-one">
                                 <f-one></f-one>
                             </template>

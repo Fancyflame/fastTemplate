@@ -16,10 +16,13 @@
         let ftmProxy;
         data[DataSource.watch] = function (watcher) {
             watchPool.add(watcher);
-            Object.keys(ftmData).forEach(x => watcher.render(x));
+            Object.entries(ftmData).forEach(x => watcher.render(...x));
         };
         data[DataSource.unwatch] = function (watcher) {
             watchPool.delete(watcher);
+        };
+        data[DataSource.getValue] = function () {
+            return ftmData;
         };
         //设置ftmProxy选项
         let haveSettedData = false;
@@ -34,23 +37,25 @@
                 haveSettedData = true;
                 Object.keys(ftmData).forEach(x => delete data[x]);
                 ftmData = Object.assign({}, v);
-                Object.keys(v).forEach(prop => {
+                Object.entries(v).forEach(array => {
+                    let prop = array[0];
                     let options = {
                         get: function () {
                             return ftmData[prop];
                         },
                         set: function (v) {
+                            //更新数据
                             if (once) return;
                             ftmData[prop] = v;
                             watchPool.forEach(x => {
-                                x.render(prop);
+                                x.render(prop, v);
                             });
                         }
                     };
                     Object.defineProperty(v, prop, options);
                     Object.defineProperty(data, prop, options);
                     watchPool.forEach(x => {
-                        x.render(prop);
+                        x.render(...array);
                     });
                 });
                 if (once) {
@@ -72,20 +77,29 @@
     };
     DataSource.watch = Symbol("DataSourceWatch");
     DataSource.unwatch = Symbol("DataSourceUnwatch");
+    DataSource.getValue = Symbol("DataSourceGetValue");
     const Binds = function (node) {
         let binds = this;
-        let source = null;//绑定到ftmData
-        Object.defineProperty(binds, "source", {
-            get: function () {
-                return source;
-            },
-            set: function (data) {
-                if (source) source[DataSource.unwatch](binds);
-                source = data;
-                data[DataSource.watch](binds);
+        let sources = new Set(); //绑定到的数据源
+        let cache = {}; //缓存的DataSource
+        binds.connectTo = function (data) {
+            if (data instanceof Array) {
+                data.forEach(binds.connectTo);
+                return;
             }
-        });
-
+            //if (sources.has(data)) return;
+            sources.add(data);
+            data[DataSource.watch](binds);
+        };
+        binds.disconnectFrom = function (data) {
+            if (data instanceof Array) {
+                data.forEach(binds.disconnectFrom);
+                return;
+            }
+            //if (!sources.has(data)) return;
+            sources.delete(data);
+            data[DataSource.unwatch](binds);
+        };
         binds.listeners = {
             //模板里头绑定的数据
             /*
@@ -232,7 +246,7 @@
         }
         //实例化一个模板
         function overrideBlock(str) {
-            if (!source) throw "Please connect to a Data object first";
+            if (!sources.size) throw "Please connect to a Data object first";
             let offset = 0;
             let arr = _readBlock(str);
             for (let o of arr) {
@@ -242,12 +256,12 @@
                 type = type == -1 ? "string" : content.slice(2, type);
                 let repla = "<Err_Unknown_Type>";
                 if (type == "string") {
-                    repla = source[rawctt];
+                    repla = cache[rawctt];
                     if (repla instanceof Node) return repla;
                     else repla = String(repla);
                 } else if (type == "js" || type == "glb-js") {
                     try {
-                        repla = new Function("data", "return (" + rawctt + ")").call(node, source);
+                        repla = new Function("data", "return (" + rawctt + ")").call(node, cache);
                         if (repla instanceof Node) return repla;
                         else repla = String(repla);
                     } catch (err) {
@@ -307,7 +321,7 @@
 
         //延迟渲染
         let waitingRender = new Set();
-        function renderAfterFinished(prop) {
+        function renderAfterFinished(prop, v) {
             if (waitingRender.size == 0) {
                 setTimeout(() => {
                     waitingRender.add("##javascript");
@@ -317,6 +331,7 @@
                     waitingRender.clear();
                 });
             }
+            cache[prop] = v;
             waitingRender.add(prop);
         }
         binds.render = renderAfterFinished;
@@ -358,12 +373,11 @@
                     //如果属性是以ftm-开头并且不是ftm-el也不是ftm-src并且当前元素没有声明这个属性
                     if (isftm.test(i) && i != "ftm-el" && i != "ftm-src" && !target.hasAttribute(i)) {
                         target.setAttribute(i, o);
-                        console.log(i);
-                    } else console.log(i);
+                    }
                 }
             let once = target.getAttribute("ftm-once");
             once = once == "true" || once == "";
-            let _source;//要连接到的其它ftmData
+            let _source = new Set();//要连接到的其它ftmData
             let _ftmData = (function () {
                 /*if (target.tagName == "BIG-CODE") debugger;
                 else console.log(target.tagName);*/
@@ -386,38 +400,63 @@
                     return data && data.ftmData;
                 }
                 {//与其它数据源的绑定和继承关系
-                    let cp = target.getAttribute("ftm-cpdata");
-                    if (cp) {
-                        let arr = cp.split(",");
-                        arr.forEach(x => {
-                            let d = getFtmData(x);
-                            if (d) Object.assign(obj, d);
-                        });
+                    function calc(attr, fn) {
+                        let foo = target.getAttribute(attr);
+                        if (foo) {
+                            let arr = foo.split(",");
+                            arr.forEach(x => {
+                                let d = getFtmData(x);
+                                if (d) fn(d);
+                            });
+                        }
                     }
-                    let use = target.getAttribute("ftm-bddata");
-                    if (use) {
-                        let data = getFtmData(use);
-                        if (data) _source = data;
-                    }
+                    calc("ftm-cpdata", (d) => {
+                        Object.assign(obj, d[DataSource.getValue]());
+                    });
+                    calc("ftm-bddata", (d) => {
+                        _source.add(d);
+                    });
                 }
 
                 let args = target.getAttribute("ftm-args");
-                if (args !== null) debugger;
                 if (target.childNodes.length < 1) return obj;
-                let str = target.querySelector("pre[ftm-data]");
-                str = str ? str.innerHTML : target.firstChild.nodeValue;//第一个节点应该是文本节点
+                let dataFrom = target.querySelector("pre[ftm-data]") || target.firstChild;//第一个节点应该是文本节点
+                str = dataFrom.nodeType == 1 ? dataFrom.innerHTML : dataFrom.nodeValue;
+
+                //这个是用来读取可作为变量的节点用的
+                function getKeyNode(x) {
+                    let inHTML = (x.hasAttribute("ftm-in-html") ? x.getAttribute("ftm-in-html") : target.getAttribute("ftm-in-html"));
+                    if (inHTML == "true" || inHTML == "") {
+                        if (x.tagName == "TEMPLATE") {
+                            x = x.content.cloneNode(true);
+                        } else {
+                            let fra = document.createDocumentFragment();
+                            for (let y of Array.from(x.childNodes)) {//childNodes是实时的，所以需要先转换成Array
+                                fra.appendChild(y);
+                            }
+                            x = fra;
+                        }
+                    }
+                    return x;
+                }
                 if (args) {
                     //识别快捷参数
-                    let r = args.split(/ +/);
-                    str = str.trim().split(/ +/);
+                    let r = args.trim().split(/ +/);
+                    str = str.trim();
+                    str = str ? str.split(/ +/) : [];
+                    str = str.concat([...target.childNodes]);
+                    if (str.indexOf(dataFrom) > -1) str.splice(str.indexOf(dataFrom), 1);
+                    console.log(str);
                     r.forEach((k, i) => {
-                        if (!k) return; //可能是遇到了连续空格
                         if (str[i]) {
-                            let v = str[i].replace(/\\s/g, " "); //将所有的\s替换成空格
+                            let v = str[i];
+                            v = typeof v == "string" ? v.replace(/\\s/g, " ") : v; //将所有的\s替换成空格
                             try {
-                                obj[k] = JSON.parse('"' + v + '"');
-                            } catch (err) { }
-                        }
+                                obj[k] = v instanceof Node ? getKeyNode(v) : JSON.parse('"' + v + '"');
+                            } catch (err) {
+                                obj[k] = null;
+                            }
+                        } else str.splice(i, 1);
                     });
                 } else {
                     //识别标准键值对
@@ -452,26 +491,13 @@
                             obj[lastkey] += "\n" + (s > keyIndent ? s.slice(keyIndent.length) : "") + x;
                         }
                     }
-                }
 
-                //获取子html元素设定为参数
-                for (let x of target.children) {
-                    let key = x.getAttribute("ftm-key");
-                    if (key === null) continue;
-                    //这个是表示只取子元素
-                    let inHTML = (x.hasAttribute("ftm-in-html") ? x.getAttribute("ftm-in-html") : target.getAttribute("ftm-in-html"));
-                    if (inHTML == "true" || inHTML == "") {
-                        if (x.tagName == "TEMPLATE") {
-                            x = x.content.cloneNode(true);
-                        } else {
-                            let fra = document.createDocumentFragment();
-                            for (let y of Array.from(x.childNodes)) {//childNodes是实时的，所以需要先转换成Array
-                                fra.appendChild(y);
-                            }
-                            x = fra;
-                        }
+                    //获取子html元素设定为参数
+                    for (let x of target.children) {
+                        let key = x.getAttribute("ftm-key");
+                        if (key === null) continue;
+                        obj[key] = getKeyNode(x);
                     }
-                    obj[key] = x;
                 }
                 return obj;
             })();
@@ -481,7 +507,8 @@
             if (!isSource) {
                 let binds = new Binds(target);
                 target.ftmBinds = binds;
-                binds.source = _source || ftmData;
+                let w = [ftmData, ..._source];
+                binds.connectTo(w);
             }
 
             //导入模板

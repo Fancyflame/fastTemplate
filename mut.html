@@ -31,7 +31,7 @@
     <script src="fastTemplate.js"></script>
     <script>
         let aaa;
-        let mo = new MutationObserver((records) => {
+        /*let mo = new MutationObserver((records) => {
             console.log([...records]);
         });
         mo.observe(document.documentElement, {
@@ -40,28 +40,33 @@
         });
         window.onload = () => {
             aaa = document.getElementById("aaa");
-        }
+        }*/
         function cre(name) {
             return document.createElement(name);
         }
     </script>
-    <template ftm-el="f-two" ftm-args="a b c">
+    <template ftm-el="f-two" ftm-args="a b c" ftm-bddata="#sources">
         <div class="ddd">(%{a}+%{b})*%{c}=%{js:(Number(data.a)+Number(data.b))*data.c}</div>
     </template>
     <template ftm-el="f-one">
         <div class="ddd" ftm-use-html="%{content}"></div>
     </template>
     <ftm-src id="sources">
-        a:1
-        b:3
+        c:26
     </ftm-src>
     <div id="aaa">
         <p>
-            <f-one>
-                <f-two ftm-key="content" fftm-bddata="#sources">
-                    125 97 9
+            <f-one ftm-args="content">
+                <f-two>
+                    125 97
                 </f-two>
             </f-one>
+            <f-two>
+                21 92
+            </f-two>
+            <f-two>
+                928 21
+            </f-two>
         </p>
     </div>
 </body>
